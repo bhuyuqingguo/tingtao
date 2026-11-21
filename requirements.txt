@@ -1,0 +1,7 @@
+faster-whisper
+PySide6
+pyinstaller
+huggingface_hub
+python-docx
+onnxruntime
+numpy

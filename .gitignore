@@ -1,0 +1,40 @@
+# Python and local environments
+.venv/
+.venv-*/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Large runtime assets; download or install separately
+models/
+ffmpeg/
+wheelhouse/
+
+# Personal data, transcripts, voiceprints, logs and configuration
+data/
+config.json
+*.wav
+*.mp3
+*.m4a
+*.mp4
+!assets/test-zh.wav
+
+# Builds and release artifacts
+build-cache/
+build/
+dist/
+*.zip
+*.7z
+*.tar
+*.tar.gz
+*.ttupdate
+*.tlupdate
+
+# Local verification and OS/editor files
+*verification*.json
+*acceptance*/
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -1,0 +1,52 @@
+{
+  "model_repositories": [
+    "Systran/faster-whisper-small",
+    "Systran/faster-whisper-medium"
+  ],
+  "ffmpeg_sources": [
+    "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip",
+    "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
+  ],
+  "files": [
+    {
+      "path": "models/faster-whisper-small/model.bin",
+      "sha256": "3e305921506d8872816023e4c273e75d2419fb89b24da97b4fe7bce14170d671",
+      "bytes": 483546902
+    },
+    {
+      "path": "models/faster-whisper-small/config.json",
+      "sha256": "b55496ac7940a7ae47d2c01eab40edfd8701feec1229d9cce3b40014383fb828",
+      "bytes": 2370
+    },
+    {
+      "path": "models/faster-whisper-small/tokenizer.json",
+      "sha256": "fb7b63191e9bb045082c79fd742a3106a12c99513ab30df4a0d47fa6cb6fd0ab",
+      "bytes": 2203239
+    },
+    {
+      "path": "models/faster-whisper-medium/model.bin",
+      "sha256": "9b45e1009dcc4ab601eff815b61d80e60ce3fd8c74c1a14f4a282258286b51ae",
+      "bytes": 1527906378
+    },
+    {
+      "path": "models/faster-whisper-medium/config.json",
+      "sha256": "3622a2ddc41ec0e0fd4e68c13c6830f03b90c38d89aaad184de02c8c642cf807",
+      "bytes": 2257
+    },
+    {
+      "path": "models/faster-whisper-medium/tokenizer.json",
+      "sha256": "fb7b63191e9bb045082c79fd742a3106a12c99513ab30df4a0d47fa6cb6fd0ab",
+      "bytes": 2203239
+    },
+    {
+      "path": "models/faster-whisper-medium/vocabulary.txt",
+      "sha256": "34ce3fe1c5041027b3f8d42912270993f986dbc4bb34cf27f951e34a1e453913",
+      "bytes": 459861
+    },
+    {
+      "path": "ffmpeg/ffmpeg.exe",
+      "sha256": "04e1307997530f9cf2fe35cba2ca7e8875ca91da02f89d6c7243df819c94ad00",
+      "bytes": 82797568
+    }
+  ]
+}
