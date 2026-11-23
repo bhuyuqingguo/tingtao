@@ -12,8 +12,9 @@ ROOT = Path(__file__).resolve().parents[1]
 DIST_ROOT = ROOT / "dist" / "Windows-x64"
 DIST = DIST_ROOT / "TingTao"
 LAUNCHER = DIST_ROOT / "TingTao.exe"
-ARCHIVE = ROOT / "dist" / "TingTao-1.6.1-Windows-x64-Offline.zip"
-RELEASE_MANIFEST = ROOT / "dist" / "TingTao-1.6.1-release-manifest.json"
+ARCHIVE = ROOT / "dist" / "TingTao-1.6.2-Windows-x64-Offline.zip"
+INCREMENTAL = ROOT / "dist" / "TingTao-1.6.1-to-1.6.2-Windows-x64-Incremental.zip"
+RELEASE_MANIFEST = ROOT / "dist" / "TingTao-1.6.2-release-manifest.json"
 
 
 def sha256(path: Path) -> str:
@@ -88,15 +89,25 @@ def main() -> None:
         "zip_crc_test": True,
         "top_level_items": sorted(full_top),
     }
+    if not INCREMENTAL.is_file():
+        raise RuntimeError("Tested 1.6.1-to-1.6.2 incremental package is missing")
+    incremental_top = archive_top_level(INCREMENTAL)
+    if incremental_top != {"TingTao.exe", "TingTaoUpdate"}:
+        raise RuntimeError(f"Incremental package top-level rule failed: {incremental_top}")
+    incremental_info = {
+        "path": str(INCREMENTAL), "bytes": INCREMENTAL.stat().st_size,
+        "sha256": write_hash_file(INCREMENTAL), "zip_crc_test": True,
+        "top_level_items": sorted(incremental_top),
+    }
     verification = json.loads((DIST / "VERIFICATION.json").read_text(encoding="utf-8"))
     release = {
         "created_at": datetime.now(timezone.utc).astimezone().isoformat(),
         "product": "TingTao",
         "product_name_zh": "观海·听涛",
-        "version": "1.6.1",
+        "version": "1.6.2",
         "full_package": full_info,
-        "incremental_package": None,
-        "incremental_status": "1.5.0/1.6.0 self-update flow is defective and cannot be repaired by payload; use this transition full package. In-app incremental updates are supported from 1.6.1 onward.",
+        "incremental_package": incremental_info,
+        "incremental_status": "The 1.6.1-to-1.6.2 package passed copied-runtime self-update, restart and data preservation tests. Versions 1.5.0/1.6.0 require a full package.",
         "real_copied_runtime_self_update_test": True,
         "embedded_models": [
             {

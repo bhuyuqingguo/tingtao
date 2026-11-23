@@ -11,17 +11,17 @@ ROOT = Path(__file__).resolve().parents[1]
 DIST_ROOT = ROOT / "dist" / "Windows-x64"
 DIST = DIST_ROOT / "TingTao"
 LAUNCHER = DIST_ROOT / "TingTao.exe"
-STAGE = ROOT / "build-cache" / "stage-1.6.1"
-WORK = ROOT / "build-cache" / "pyinstaller-1.6.1"
-UPDATER_STAGE = ROOT / "build-cache" / "updater-stage-1.6.1"
-UPDATER_WORK = ROOT / "build-cache" / "updater-pyinstaller-1.6.1"
-LAUNCHER_STAGE = ROOT / "build-cache" / "launcher-stage-1.6.1"
-LAUNCHER_WORK = ROOT / "build-cache" / "launcher-pyinstaller-1.6.1"
+STAGE = ROOT / "build-cache" / "stage-1.6.2"
+WORK = ROOT / "build-cache" / "pyinstaller-1.6.2"
+UPDATER_STAGE = ROOT / "build-cache" / "updater-stage-1.6.2"
+UPDATER_WORK = ROOT / "build-cache" / "updater-pyinstaller-1.6.2"
+LAUNCHER_STAGE = ROOT / "build-cache" / "launcher-stage-1.6.2"
+LAUNCHER_WORK = ROOT / "build-cache" / "launcher-pyinstaller-1.6.2"
 PYTHON = ROOT / ".venv" / "Scripts" / "python.exe"
 PYINSTALLER = ROOT / ".venv" / "Scripts" / "pyinstaller.exe"
-VERSION = "1.6.1"
+VERSION = "1.6.2"
 
-USAGE = """观海·听涛 1.6.1 · 完全离线语音转录
+USAGE = """观海·听涛 1.6.2 · 完全离线语音转录
 ====================================
 观海听涛，声落成章。
 
@@ -48,7 +48,7 @@ USAGE = """观海·听涛 1.6.1 · 完全离线语音转录
 7. 播放或转录加密音频时生成会话临时副本，锁定或退出自动清除。导出的普通音频和文稿不自动加密。
 
 开场与转录前处理
-- 开场动画和海浪音效均为本地资源，可点击跳过。
+- 潮生、远山、听涛、星夜四套开场每次随机出现，标题与标志采用独立固定区域；海浪音效为本地资源，可点击跳过。
 - 工作台默认“原声”，可选轻度或标准降噪与响度归一化；只处理识别用临时音频，不修改原文件。
 - 清晰合成中文样本的三档识别文本一致，但不代表所有真实噪声环境都有收益；建议重要音频先与原声对照。
 
@@ -75,7 +75,7 @@ Ctrl+O 添加文件；Ctrl+Enter 开始；Ctrl+S 另存 TXT。
 - “模型与系统”页导入 .ttupdate；仍兼容读取旧 .tlupdate 清单格式。
 - 升级前校验版本与旧文件哈希，自动备份，失败回滚。
 - config.json、data、small 和 medium 不受修改；音频库、声纹库、录音和转录记录均受保护。
-- 从观海·听涛 1.6.1 起：在当前软件“模型与系统”页选择匹配源版本的 .ttupdate，点击“一键升级”。
+- 从观海·听涛 1.6.2 起：在当前软件“模型与系统”页选择匹配源版本的 .ttupdate，点击“一键升级”。
   当前程序复制自身的内嵌升级运行体，关闭主窗口后替换正式程序并自动启动新版，不使用独立升级工具。
 - 1.5.0／1.6.0 的旧流程会让正在运行的 exe 替换自身，Windows 会拒绝；请使用本过渡完整包，旧增量包不要再用。
 
@@ -232,7 +232,7 @@ def write_build_info() -> None:
         "update_format": "tinglan-offline-update-v1",
         "application_and_model_updates_separated": False,
         "application_update_excludes": ["data", "models/faster-whisper-small", "models/faster-whisper-medium", "config.json"],
-        "model_update_policy": "1.6.1 updates application and local sound assets only; existing ASR, voiceprint models and user data are protected",
+        "model_update_policy": "1.6.2 updates application and local sound assets only; existing ASR, voiceprint models and user data are protected",
         "audio_presets": {"default": "original", "optional": ["light", "standard"], "modifies_source": False},
         "recording": {"waveform": True, "peak_meter_db_ticks": [-12, -6, 0], "limiter": ["off", "gentle", "standard"], "window_and_taskbar_tally": True},
         "opening_scene": {"local_animation": True, "local_ocean_sound": True, "skippable": True},

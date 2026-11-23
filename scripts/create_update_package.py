@@ -43,10 +43,10 @@ def files_by_relative(root: Path) -> dict[str, Path]:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Create a two-item TingTao in-app incremental update package")
-    parser.add_argument("--old", type=Path, default=ROOT / "dist" / "TingTao-1.6.0-Windows-x64-Offline" / "TingTao")
+    parser.add_argument("--old", type=Path, default=ROOT / "build-cache" / "self-update-acceptance-1.6.1" / "TingTao")
     parser.add_argument("--new", type=Path, default=ROOT / "dist" / "Windows-x64" / "TingTao")
     parser.add_argument("--platform", choices=("windows", "kylin"), default="windows")
-    parser.add_argument("--work", type=Path, default=ROOT / "build-cache" / "update-package-1.6.1")
+    parser.add_argument("--work", type=Path, default=ROOT / "build-cache" / "update-package-1.6.2")
     parser.add_argument("--archive", type=Path)
     return parser.parse_args()
 
@@ -89,7 +89,7 @@ def main() -> None:
         "created_at": datetime.now().astimezone().isoformat(), "files": changed, "deletes": deletes,
         "total_payload_bytes": sum(item["size"] for item in changed),
         "protected_paths": ["data", "models/faster-whisper-small", "models/faster-whisper-medium", "config.json"],
-        "release_notes": "修复 Windows 正式 exe 在运行时无法替换自身的一键升级缺陷：当前程序复制自身内嵌升级运行体，关闭界面后更新并自动重启，不使用独立升级工具。主题与配置在关闭前保存，临时运行体不进入完整性清单。保留海浪开场、实时波形、分色电平、数字限幅、可选降噪和中文模型名称。个人配置、音频库、记录和模型受保护。",
+        "release_notes": "重新设计开场排版，修复标志与标题重叠；新增潮生、远山、听涛、星夜四套随机画面，保留本地海浪音效与点击跳过。录音时标志太阳在赭金与朱红间呼吸，标志边框在原色与朱红间切换。个人配置、音频库、记录和模型受保护。",
     }
     args.work.mkdir(parents=True, exist_ok=True)
     update.unlink(missing_ok=True)

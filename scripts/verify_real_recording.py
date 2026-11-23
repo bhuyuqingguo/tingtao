@@ -31,7 +31,7 @@ def capture() -> None:
     assert panel.recorder.recording
     assert window.windowTitle().startswith("● 录音中")
     assert window.recording_border.isVisible()
-    window.grab().save(str(ROOT / "build-cache" / "gui-1.6.1" / "real-recording.png"))
+    window.grab().save(str(ROOT / "build-cache" / "gui-1.6.2" / "real-recording.png"))
     panel.recorder.stop()
 
 

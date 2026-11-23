@@ -12,7 +12,7 @@ from offline_transcriber.splash import OceanSplash
 
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "build-cache" / "gui-1.6.1"
+OUT = ROOT / "build-cache" / "gui-1.6.2"
 OUT.mkdir(parents=True, exist_ok=True)
 app = QApplication([])
 window = MainWindow()
@@ -62,7 +62,7 @@ message.close()
 
 update_dialog = QMessageBox(window)
 update_dialog.setWindowTitle("确认离线增量升级")
-update_dialog.setText("观海·听涛 v1.6.1  →  v1.6.2")
+update_dialog.setText("观海·听涛 v1.6.2  →  v1.6.2")
 update_dialog.setInformativeText("程序会保存主题和配置，关闭主窗口后由内嵌运行体完成升级，并自动启动新版。")
 update_dialog.setDetailedText("不使用独立升级工具；失败时回滚。")
 update_dialog.setStandardButtons(QMessageBox.StandardButton.Cancel | QMessageBox.StandardButton.Yes)
@@ -72,12 +72,15 @@ app.processEvents()
 assert update_dialog.grab().save(str(OUT / "update-dialog.png"))
 update_dialog.close()
 
-splash = OceanSplash(ROOT / "assets" / "guanhai-tingtao-logo-256.png", duration_ms=10000)
-splash.show()
-app.processEvents()
-assert splash.grab().save(str(OUT / "splash.png"))
-splash.sound.stop()
-splash.finish()
+for scene_index in range(4):
+    splash = OceanSplash(ROOT / "assets" / "guanhai-tingtao-logo-256.png", duration_ms=10000, scene_index=scene_index)
+    splash.show()
+    app.processEvents()
+    assert splash.grab().save(str(OUT / f"splash-{scene_index + 1}-{splash.scene_name}.png"))
+    splash.sound.stop()
+    splash.finish()
+random_splashes = [OceanSplash(ROOT / "assets" / "guanhai-tingtao-logo-256.png", duration_ms=10000).scene_index for _ in range(24)]
+assert len(set(random_splashes)) > 1
 window._update_launch_pending = True
 window.close()
 print(f"GUI previews and dialog contrast checks saved: {OUT}")

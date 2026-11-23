@@ -13,10 +13,10 @@ from verify_package import load_success, offline_environment
 
 
 ROOT = Path(__file__).resolve().parents[1]
-OLD = ROOT / "dist" / "TingTao-1.6.0-Windows-x64-Offline" / "TingTao"
+OLD = ROOT / "build-cache" / "self-update-acceptance-1.6.1" / "TingTao"
 DIST = ROOT / "dist" / "Windows-x64" / "TingTao"
-PACKAGE = ROOT / "build-cache" / "update-package-1.6.1" / "TingTao-1.6.0-to-1.6.1.ttupdate"
-ACCEPTANCE = ROOT / "build-cache" / "self-update-acceptance-1.6.1"
+PACKAGE = ROOT / "build-cache" / "update-package-1.6.2" / "TingTao-1.6.1-to-1.6.2.ttupdate"
+ACCEPTANCE = ROOT / "build-cache" / "self-update-acceptance-1.6.2"
 TARGET = ACCEPTANCE / "TingTao"
 RUNTIME = TARGET / "data" / "update-staging" / "runtime" / ".tingtao-self-update.exe"
 
@@ -88,7 +88,7 @@ def main() -> None:
         stop_gui()
         raise RuntimeError("New UI did not clean the temporary self-update runtime")
     try:
-        if json.loads((TARGET / "build-info.json").read_text(encoding="utf-8"))["version"] != "1.6.1":
+        if json.loads((TARGET / "build-info.json").read_text(encoding="utf-8"))["version"] != "1.6.2":
             raise RuntimeError("Target build version was not updated")
         if config_path.read_bytes() != config_before:
             raise RuntimeError("Theme or personal configuration changed")
@@ -118,7 +118,7 @@ def main() -> None:
         raise RuntimeError("Updated offline transcription failed")
     report = {
         "verified_at": datetime.now(timezone.utc).astimezone().isoformat(),
-        "from_version": "1.6.0", "to_version": "1.6.1",
+        "from_version": "1.6.1", "to_version": "1.6.2",
         "old_direct_self_replace_winerror5_reproduced": True,
         "copied_current_application_runtime": True,
         "standalone_updater_used": False,

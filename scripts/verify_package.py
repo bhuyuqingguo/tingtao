@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DIST_ROOT = ROOT / "dist" / "Windows-x64"
 DIST = DIST_ROOT / "TingTao"
 LAUNCHER = DIST_ROOT / "TingTao.exe"
-ACCEPTANCE = ROOT / "build-cache" / "acceptance-1.6.1"
+ACCEPTANCE = ROOT / "build-cache" / "acceptance-1.6.2"
 AUDIO = ROOT / "assets" / "test-zh.wav"
 
 if os.name == "nt":
