@@ -12,9 +12,8 @@ ROOT = Path(__file__).resolve().parents[1]
 DIST_ROOT = ROOT / "dist" / "Windows-x64"
 DIST = DIST_ROOT / "TingTao"
 LAUNCHER = DIST_ROOT / "TingTao.exe"
-ARCHIVE = ROOT / "dist" / "TingTao-1.6.0-Windows-x64-Offline.zip"
-UPDATE_ARCHIVE = ROOT / "dist" / "TingTao-1.5.0-to-1.6.0-Windows-x64-Incremental.zip"
-RELEASE_MANIFEST = ROOT / "dist" / "TingTao-1.6.0-release-manifest.json"
+ARCHIVE = ROOT / "dist" / "TingTao-1.6.1-Windows-x64-Offline.zip"
+RELEASE_MANIFEST = ROOT / "dist" / "TingTao-1.6.1-release-manifest.json"
 
 
 def sha256(path: Path) -> str:
@@ -45,11 +44,9 @@ def archive_top_level(path: Path) -> set[str]:
 
 
 def main() -> None:
-    for name in ("VERIFICATION.json", "UPDATE_VERIFICATION.json"):
+    for name in ("VERIFICATION.json", "SELF_UPDATE_VERIFICATION.json"):
         if not (DIST / name).is_file():
-            raise RuntimeError(f"{name} is missing; run both package verification passes first")
-    if not UPDATE_ARCHIVE.is_file():
-        raise RuntimeError("Incremental update ZIP is missing")
+            raise RuntimeError(f"{name} is missing; run package and real self-update verification first")
     if {path.name for path in DIST_ROOT.iterdir()} != {"TingTao.exe", "TingTao"}:
         raise RuntimeError("Windows build root must contain exactly TingTao.exe and TingTao")
 
@@ -80,11 +77,8 @@ def main() -> None:
             package.write(path, arcname=(Path("TingTao") / path.relative_to(DIST)).as_posix())
 
     full_top = archive_top_level(ARCHIVE)
-    update_top = archive_top_level(UPDATE_ARCHIVE)
     if full_top != {"TingTao.exe", "TingTao"}:
         raise RuntimeError(f"Full package top-level rule failed: {full_top}")
-    if update_top != {"TingTao.exe", "TingTaoUpdate"}:
-        raise RuntimeError(f"Incremental package top-level rule failed: {update_top}")
 
     full_info = {
         "path": str(ARCHIVE),
@@ -94,21 +88,16 @@ def main() -> None:
         "zip_crc_test": True,
         "top_level_items": sorted(full_top),
     }
-    update_info = {
-        "path": str(UPDATE_ARCHIVE),
-        "bytes": UPDATE_ARCHIVE.stat().st_size,
-        "sha256": write_hash_file(UPDATE_ARCHIVE),
-        "zip_crc_test": True,
-        "top_level_items": sorted(update_top),
-    }
     verification = json.loads((DIST / "VERIFICATION.json").read_text(encoding="utf-8"))
     release = {
         "created_at": datetime.now(timezone.utc).astimezone().isoformat(),
         "product": "TingTao",
         "product_name_zh": "观海·听涛",
-        "version": "1.6.0",
+        "version": "1.6.1",
         "full_package": full_info,
-        "incremental_package": update_info,
+        "incremental_package": None,
+        "incremental_status": "1.5.0/1.6.0 self-update flow is defective and cannot be repaired by payload; use this transition full package. In-app incremental updates are supported from 1.6.1 onward.",
+        "real_copied_runtime_self_update_test": True,
         "embedded_models": [
             {
                 "name": f"Systran/faster-whisper-{name}",

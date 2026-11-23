@@ -11,17 +11,17 @@ ROOT = Path(__file__).resolve().parents[1]
 DIST_ROOT = ROOT / "dist" / "Windows-x64"
 DIST = DIST_ROOT / "TingTao"
 LAUNCHER = DIST_ROOT / "TingTao.exe"
-STAGE = ROOT / "build-cache" / "stage-1.6.0"
-WORK = ROOT / "build-cache" / "pyinstaller-1.6.0"
-UPDATER_STAGE = ROOT / "build-cache" / "updater-stage-1.6.0"
-UPDATER_WORK = ROOT / "build-cache" / "updater-pyinstaller-1.6.0"
-LAUNCHER_STAGE = ROOT / "build-cache" / "launcher-stage-1.6.0"
-LAUNCHER_WORK = ROOT / "build-cache" / "launcher-pyinstaller-1.6.0"
+STAGE = ROOT / "build-cache" / "stage-1.6.1"
+WORK = ROOT / "build-cache" / "pyinstaller-1.6.1"
+UPDATER_STAGE = ROOT / "build-cache" / "updater-stage-1.6.1"
+UPDATER_WORK = ROOT / "build-cache" / "updater-pyinstaller-1.6.1"
+LAUNCHER_STAGE = ROOT / "build-cache" / "launcher-stage-1.6.1"
+LAUNCHER_WORK = ROOT / "build-cache" / "launcher-pyinstaller-1.6.1"
 PYTHON = ROOT / ".venv" / "Scripts" / "python.exe"
 PYINSTALLER = ROOT / ".venv" / "Scripts" / "pyinstaller.exe"
-VERSION = "1.6.0"
+VERSION = "1.6.1"
 
-USAGE = """观海·听涛 1.6.0 · 完全离线语音转录
+USAGE = """观海·听涛 1.6.1 · 完全离线语音转录
 ====================================
 观海听涛，声落成章。
 
@@ -41,7 +41,7 @@ USAGE = """观海·听涛 1.6.0 · 完全离线语音转录
 录音、音频库与加密
 1. “录音与音频库”页可选择系统输入音源，录制 16 kHz 单声道 WAV，命名收存后立即加入离线转录。
 2. 实时波形与 -12／-6／0 dB 分色电平表用于观察输入；提示音不会把麦克风回放到扬声器。
-3. 录音时窗口红框闪烁，标题和任务栏图标出现红色提示；数字限幅有关闭、温和、标准三档。
+3. 录音时标志太阳在赭金与朱红间呼吸，标志边框在原色与朱红间切换，窗口红框、标题和任务栏图标同步提示；数字限幅有关闭、温和、标准三档。
 4. 数字限幅只处理写入文件的峰值，不能修复麦克风或声卡已经发生的削波。
 5. 支持导入、重命名、关键词库、搜索、播放、导出、删除和批量加入转录。
 6. 可选 AES-256-GCM 加密，音频内容、名称和关键词均加密；密码至少 8 字符且不会保存，遗忘无法恢复。
@@ -75,8 +75,9 @@ Ctrl+O 添加文件；Ctrl+Enter 开始；Ctrl+S 另存 TXT。
 - “模型与系统”页导入 .ttupdate；仍兼容读取旧 .tlupdate 清单格式。
 - 升级前校验版本与旧文件哈希，自动备份，失败回滚。
 - config.json、data、small 和 medium 不受修改；音频库、声纹库、录音和转录记录均受保护。
-- 从观海·听涛 1.5.0 升级：在当前软件“模型与系统”页选择解压后的 .ttupdate，点击“一键升级”。
-  当前程序自行校验、备份、安装与失败回滚；Windows 自动重启一次，不使用独立升级工具。
+- 从观海·听涛 1.6.1 起：在当前软件“模型与系统”页选择匹配源版本的 .ttupdate，点击“一键升级”。
+  当前程序复制自身的内嵌升级运行体，关闭主窗口后替换正式程序并自动启动新版，不使用独立升级工具。
+- 1.5.0／1.6.0 的旧流程会让正在运行的 exe 替换自身，Windows 会拒绝；请使用本过渡完整包，旧增量包不要再用。
 
 完整性与自检
 在资源文件夹运行：powershell -ExecutionPolicy Bypass -File verify_package.ps1
@@ -231,7 +232,7 @@ def write_build_info() -> None:
         "update_format": "tinglan-offline-update-v1",
         "application_and_model_updates_separated": False,
         "application_update_excludes": ["data", "models/faster-whisper-small", "models/faster-whisper-medium", "config.json"],
-        "model_update_policy": "1.6.0 updates application and local sound assets only; existing ASR, voiceprint models and user data are protected",
+        "model_update_policy": "1.6.1 updates application and local sound assets only; existing ASR, voiceprint models and user data are protected",
         "audio_presets": {"default": "original", "optional": ["light", "standard"], "modifies_source": False},
         "recording": {"waveform": True, "peak_meter_db_ticks": [-12, -6, 0], "limiter": ["off", "gentle", "standard"], "window_and_taskbar_tally": True},
         "opening_scene": {"local_animation": True, "local_ocean_sound": True, "skippable": True},

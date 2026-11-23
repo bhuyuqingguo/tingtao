@@ -110,7 +110,9 @@ def main() -> int:
     app.setOrganizationName("GuanHaiTingTao")
     if LOGO_PATH.is_file():
         app.setWindowIcon(QIcon(str(LOGO_PATH)))
+    from .update_manager import cleanup_stale_update_runtime
     window = MainWindow()
+    cleanup_stale_update_runtime()
     if "--no-splash" in sys.argv:
         window.show()
     else:

@@ -28,7 +28,7 @@ from .minutes import generate_minutes
 from .model_catalog import MODEL_SPECS, model_binary_size, model_is_complete
 from .paths import APP_ROOT, LOG_ROOT, OUTPUT_ROOT, ensure_data_directories
 from .record_naming import read_record_text, rename_record, suggest_name_from_text
-from .recording_widgets import RecordingBorder
+from .recording_widgets import LogoTally, RecordingBorder
 from .speaker import VoiceprintStore
 from .transcriber import TranscriptionResult
 from .update_manager import inspect_update, launch_update
@@ -176,6 +176,7 @@ class MainWindow(QMainWindow):
 
     def _set_recording_tally(self, active: bool) -> None:
         self.recording_border.set_recording(active)
+        self.logo_tally.set_recording(active)
         self.setWindowTitle(("● 录音中 · " if active else "") + f"{PRODUCT_NAME} · 本地语音转录")
         self.setWindowIcon(self._recording_icon if active else self._base_window_icon)
 
@@ -230,9 +231,8 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(20, 26, 20, 22)
         layout.setSpacing(10)
         brand_row = QHBoxLayout()
-        logo = QLabel()
-        if LOGO_PATH.is_file():
-            logo.setPixmap(QPixmap(str(LOGO_PATH)).scaled(52, 52, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+        self.logo_tally = LogoTally(LOGO_PATH)
+        logo = self.logo_tally
         brand_text = QVBoxLayout()
         name = QLabel(PRODUCT_NAME)
         name.setObjectName("brandName")
@@ -1197,9 +1197,13 @@ class MainWindow(QMainWindow):
         dialog.button(QMessageBox.StandardButton.Yes).setText("一键升级")
         if dialog.exec() != QMessageBox.StandardButton.Yes:
             return
-        self.audio_panel.shutdown()
+        self.update_button.setEnabled(False)
+        self.status_label.setText("正在准备内嵌升级 · 主窗口关闭后将自动安装并启动新版")
+        QApplication.processEvents()
         try:
             import sys
+            # Save the selected theme and all other settings before the UI closes.
+            self.config_store.save(self._current_config())
             staged = launch_update(package)
             if not getattr(sys, "frozen", False):
                 from .update_engine import apply_update
@@ -1207,8 +1211,11 @@ class MainWindow(QMainWindow):
                 QMessageBox.information(self, "升级完成", f"已升级至 v{report['to_version']}，请重新启动程序。")
                 return
         except Exception as exc:
-            QMessageBox.critical(self, "升级未完成", f"{exc}\n已自动回滚，个人数据保持不变。")
+            self.update_button.setEnabled(True)
+            self.status_label.setText("升级尚未开始 · 个人数据保持不变")
+            QMessageBox.critical(self, "升级未完成", f"{exc}\n尚未替换程序文件，个人数据保持不变。")
             return
+        self.audio_panel.shutdown()
         self._update_launch_pending = True
         self.close()
 

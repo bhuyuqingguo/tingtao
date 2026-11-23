@@ -8,12 +8,13 @@ from datetime import datetime
 from pathlib import Path
 
 from .update_common import read_update_package, safe_relative_path, sha256, validate_target
+from .update_manager import UPDATE_RUNTIME_NAME
 
 
 def rebuild_integrity_manifest(target: Path) -> None:
     files = sorted(
         path for path in target.rglob("*")
-        if path.is_file() and path.name != "SHA256SUMS.txt"
+        if path.is_file() and path.name not in {"SHA256SUMS.txt", UPDATE_RUNTIME_NAME}
         and path.relative_to(target).parts[0].lower() != "data"
     )
     content = "".join(f"{sha256(path)} *{path.relative_to(target).as_posix()}\n" for path in files)

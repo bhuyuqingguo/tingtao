@@ -15,16 +15,16 @@ ROOT = Path(__file__).resolve().parents[1]
 DIST_ROOT = ROOT / "dist" / "Kylin-x86_64"
 DIST = DIST_ROOT / "TingTaoData"
 LAUNCHER = DIST_ROOT / "TingTao"
-STAGE = ROOT / "build-cache" / "kylin-stage-1.6.0"
-WORK = ROOT / "build-cache" / "kylin-pyinstaller-1.6.0"
-UPDATER_STAGE = ROOT / "build-cache" / "kylin-updater-stage-1.6.0"
-UPDATER_WORK = ROOT / "build-cache" / "kylin-updater-pyinstaller-1.6.0"
-LAUNCHER_STAGE = ROOT / "build-cache" / "kylin-launcher-stage-1.6.0"
-LAUNCHER_WORK = ROOT / "build-cache" / "kylin-launcher-pyinstaller-1.6.0"
-ARCHIVE = ROOT / "dist" / "TingTao-1.6.0-Kylin-x86_64-Offline.zip"
-VERSION = "1.6.0"
+STAGE = ROOT / "build-cache" / "kylin-stage-1.6.1"
+WORK = ROOT / "build-cache" / "kylin-pyinstaller-1.6.1"
+UPDATER_STAGE = ROOT / "build-cache" / "kylin-updater-stage-1.6.1"
+UPDATER_WORK = ROOT / "build-cache" / "kylin-updater-pyinstaller-1.6.1"
+LAUNCHER_STAGE = ROOT / "build-cache" / "kylin-launcher-stage-1.6.1"
+LAUNCHER_WORK = ROOT / "build-cache" / "kylin-launcher-pyinstaller-1.6.1"
+ARCHIVE = ROOT / "dist" / "TingTao-1.6.1-Kylin-x86_64-Offline.zip"
+VERSION = "1.6.1"
 
-USAGE = """观海·听涛 1.6.0 · 银河麒麟 V10 x86_64 完全离线语音转录
+USAGE = """观海·听涛 1.6.1 · 银河麒麟 V10 x86_64 完全离线语音转录
 ======================================================
 观海听涛，声落成章。
 
@@ -211,7 +211,7 @@ def write_build_info() -> None:
         "update_format": "tinglan-offline-update-v1",
         "application_and_model_updates_separated": False,
         "application_update_excludes": ["data", "models/faster-whisper-small", "models/faster-whisper-medium", "config.json"],
-        "model_update_policy": "1.6.0 updates application and local sound assets only; existing ASR, voiceprint models and user data are protected",
+        "model_update_policy": "1.6.1 updates application and local sound assets only; existing ASR, voiceprint models and user data are protected",
         "larger_model_estimates_not_benchmarked": {
             "large-v3": {"model_gb": 3.09, "peak_ram_gb": [6, 10], "relative_cpu_time": [4, 8]},
         },

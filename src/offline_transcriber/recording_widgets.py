@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 
 from PySide6.QtCore import QRectF, Qt, QTimer
-from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen
+from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen, QPixmap, QRadialGradient
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 
@@ -87,6 +87,68 @@ class LevelMeter(QWidget):
             painter.drawText(QRectF(x - 26, 2, 52, 18), alignment, label)
         painter.drawText(QRectF(right - 52, 2, 52, 18), Qt.AlignmentFlag.AlignRight, "0 dB")
         painter.drawText(QRectF(left, bottom + 1, right - left, 12), Qt.AlignmentFlag.AlignRight, f"峰值 {db:.1f} dB" if self._level else "等待声音")
+
+
+class LogoTally(QWidget):
+    """The seal-sun in the logo becomes a gentle cinnabar recording tally."""
+
+    def __init__(self, logo_path, parent=None):
+        super().__init__(parent)
+        self.logo = QPixmap(str(logo_path))
+        self.setFixedSize(52, 52)
+        self._recording = False
+        self._phase = 0.0
+        self.timer = QTimer(self)
+        self.timer.setInterval(50)
+        self.timer.timeout.connect(self._breathe)
+
+    def set_recording(self, active: bool) -> None:
+        self._recording = active
+        self._phase = 0.0
+        if active:
+            self.timer.start()
+        else:
+            self.timer.stop()
+        self.update()
+
+    def _breathe(self) -> None:
+        self._phase = (self._phase + 0.055) % (2 * math.pi)
+        self.update()
+
+    def paintEvent(self, event) -> None:
+        del event
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.drawPixmap(self.rect(), self.logo)
+        scale = min(self.width(), self.height()) / 256
+        center_x, center_y = 189 * scale, 56 * scale
+        if not self._recording:
+            return
+        pulse = (math.sin(self._phase) + 1) / 2
+        glow = QRadialGradient(center_x, center_y, (26 + 6 * pulse) * scale)
+        glow.setColorAt(0, QColor(255, 68, 46, round(40 + 110 * pulse)))
+        glow.setColorAt(0.52, QColor(242, 46, 32, round(20 + 90 * pulse)))
+        glow.setColorAt(1, QColor(223, 35, 26, 0))
+        painter.setBrush(glow)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawEllipse(int(center_x - 36 * scale), int(center_y - 36 * scale),
+                            int(72 * scale), int(72 * scale))
+        sun = QRadialGradient(center_x - 3 * scale, center_y - 4 * scale, 16 * scale)
+        sun.setColorAt(0, QColor(255, 117 + round(45 * pulse), 77))
+        sun.setColorAt(0.55, QColor(246, 55 + round(15 * pulse), 36))
+        sun.setColorAt(1, QColor(200, 29, 24))
+        painter.setBrush(sun)
+        painter.setPen(QPen(QColor(148, 40, 31, 190), max(0.7, scale)))
+        painter.setOpacity(pulse)
+        painter.drawEllipse(int(center_x - 14 * scale), int(center_y - 14 * scale),
+                            int(28 * scale), int(28 * scale))
+        painter.setOpacity(1)
+        border = QColor(15, 54, 69) if pulse < 0.5 else QColor(233, 49, 36)
+        border.setAlpha(round(100 + 155 * abs(pulse - 0.5) * 2))
+        painter.setPen(QPen(border, max(1.5, 7 * scale)))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawRoundedRect(QRectF(14 * scale, 14 * scale, 228 * scale, 228 * scale),
+                                38 * scale, 38 * scale)
 
 
 class RecordingBorder(QWidget):

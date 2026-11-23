@@ -12,7 +12,7 @@ from offline_transcriber.splash import OceanSplash
 
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "build-cache" / "gui-1.6.0"
+OUT = ROOT / "build-cache" / "gui-1.6.1"
 OUT.mkdir(parents=True, exist_ok=True)
 app = QApplication([])
 window = MainWindow()
@@ -30,6 +30,8 @@ for index, name in ((0, "workspace.png"), (1, "recording.png"), (3, "system.png"
         window.audio_panel.waveform.set_values([abs(math.sin(i / 4)) * 0.72 for i in range(80)])
         window.audio_panel.level.set_level(0.42)
         window._set_recording_tally(True)
+        assert window.logo_tally._recording and window.logo_tally.timer.isActive()
+        window.logo_tally._phase = math.pi / 2  # Capture the cinnabar-red phase.
     app.processEvents()
     assert window.grab().save(str(OUT / name))
 window._set_recording_tally(False)
@@ -57,6 +59,18 @@ message.show()
 app.processEvents()
 assert message.grab().save(str(OUT / "message-dialog.png"))
 message.close()
+
+update_dialog = QMessageBox(window)
+update_dialog.setWindowTitle("确认离线增量升级")
+update_dialog.setText("观海·听涛 v1.6.1  →  v1.6.2")
+update_dialog.setInformativeText("程序会保存主题和配置，关闭主窗口后由内嵌运行体完成升级，并自动启动新版。")
+update_dialog.setDetailedText("不使用独立升级工具；失败时回滚。")
+update_dialog.setStandardButtons(QMessageBox.StandardButton.Cancel | QMessageBox.StandardButton.Yes)
+update_dialog.button(QMessageBox.StandardButton.Yes).setText("一键升级")
+update_dialog.show()
+app.processEvents()
+assert update_dialog.grab().save(str(OUT / "update-dialog.png"))
+update_dialog.close()
 
 splash = OceanSplash(ROOT / "assets" / "guanhai-tingtao-logo-256.png", duration_ms=10000)
 splash.show()

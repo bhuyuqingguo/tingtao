@@ -125,6 +125,42 @@ class UpdateTests(unittest.TestCase):
             self.assertTrue(lines)
             self.assertFalse(any("data/" in line or "SHA256SUMS.txt" in line for line in lines))
 
+    def test_integrity_manifest_excludes_temporary_self_update_runtime(self):
+        from offline_transcriber.update_manager import UPDATE_RUNTIME_NAME
+        with tempfile.TemporaryDirectory() as directory:
+            target = self.make_target(Path(directory))
+            (target / UPDATE_RUNTIME_NAME).write_bytes(b"temporary-copy")
+            rebuild_integrity_manifest(target)
+            manifest = (target / "SHA256SUMS.txt").read_text(encoding="utf-8")
+            self.assertNotIn(UPDATE_RUNTIME_NAME, manifest)
+
+    def test_frozen_launch_uses_copied_runtime_not_running_executable(self):
+        from offline_transcriber import update_manager
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            app = root / "app"
+            data = root / "data"
+            app.mkdir()
+            executable = app / "TingTao.exe"
+            executable.write_bytes(b"current-application")
+            (app / "_internal").mkdir()
+            (app / "_internal" / "base_library.zip").write_bytes(b"private-runtime-library")
+            manifest = {"package_path": str(root / "package.ttupdate")}
+            (root / "package.ttupdate").write_bytes(b"package")
+            with patch.object(update_manager, "APP_ROOT", app), patch.object(update_manager, "DATA_ROOT", data), \
+                    patch.object(update_manager, "inspect_update", return_value=manifest), \
+                    patch.object(update_manager.sys, "frozen", True, create=True), \
+                    patch.object(update_manager.sys, "executable", str(executable)), \
+                    patch.object(update_manager.subprocess, "Popen") as popen:
+                update_manager.launch_update(root / "package.ttupdate")
+            runtime = data / "update-staging" / "runtime" / update_manager.UPDATE_RUNTIME_NAME
+            command = popen.call_args.args[0]
+            self.assertEqual(command[0], str(runtime))
+            self.assertNotEqual(command[0], str(executable))
+            self.assertEqual(runtime.read_bytes(), b"current-application")
+            self.assertNotEqual(runtime.parent, executable.parent)
+            self.assertEqual((runtime.parent / "_internal" / "base_library.zip").read_bytes(), b"private-runtime-library")
+
 
 if __name__ == "__main__":
     unittest.main()
