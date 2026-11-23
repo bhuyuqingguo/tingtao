@@ -21,6 +21,7 @@ config.json
 !assets/test-zh.wav
 !assets/ocean-intro.wav
 !assets/source-chime.wav
+!assets/tutorial/*.wav
 
 # Builds and release artifacts
 build-cache/

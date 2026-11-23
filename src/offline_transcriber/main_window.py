@@ -31,6 +31,7 @@ from .record_naming import read_record_text, rename_record, suggest_name_from_te
 from .recording_widgets import LogoTally, RecordingBorder
 from .speaker import VoiceprintStore
 from .transcriber import TranscriptionResult
+from .tutorial_panel import TutorialPanel
 from .update_dialog import UpdateConfirmationDialog
 from .update_manager import inspect_update, launch_update
 from .worker import TranscriptionWorker
@@ -155,6 +156,8 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(self.audio_panel)
         self.stack.addWidget(self._build_records())
         self.stack.addWidget(self._build_system())
+        self.tutorial_panel = TutorialPanel()
+        self.stack.addWidget(self.tutorial_panel)
         root_layout.addWidget(self.stack, 1)
         self.setStyleSheet(self._stylesheet())
         self._base_window_icon = self.windowIcon()
@@ -252,7 +255,7 @@ class MainWindow(QMainWindow):
         self.nav_group = QButtonGroup(self)
         self.nav_group.setExclusive(True)
         self.nav_buttons = []
-        for index, label in enumerate(("转录工作台", "录音与音频库", "转录记录", "模型与系统")):
+        for index, label in enumerate(("转录工作台", "录音与音频库", "转录记录", "模型与系统", "使用教学")):
             button = QPushButton(label)
             button.setObjectName("navButton")
             button.setCheckable(True)
@@ -279,6 +282,8 @@ class MainWindow(QMainWindow):
         return sidebar
 
     def _show_page(self, index: int) -> None:
+        if index != 4 and hasattr(self, "tutorial_panel"):
+            self.tutorial_panel.stop()
         self.stack.setCurrentIndex(index)
         self.nav_buttons[index].setChecked(True)
 
@@ -687,7 +692,7 @@ class MainWindow(QMainWindow):
         """
 
     def _install_shortcuts(self) -> None:
-        for sequence, handler in (("Ctrl+O", self._browse_source), ("Ctrl+Return", self._start), ("Ctrl+S", lambda: self._export_as("txt"))):
+        for sequence, handler in (("Ctrl+O", self._browse_source), ("Ctrl+Return", self._start), ("Ctrl+S", lambda: self._export_as("txt")), ("F1", lambda: self._show_page(4))):
             shortcut = QShortcut(QKeySequence(sequence), self)
             shortcut.activated.connect(handler)
 
@@ -1206,6 +1211,7 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "升级未完成", f"{exc}\n尚未替换程序文件，个人数据保持不变。")
             return
         self.audio_panel.shutdown()
+        self.tutorial_panel.shutdown()
         self._update_launch_pending = True
         self.close()
 
@@ -1233,6 +1239,7 @@ class MainWindow(QMainWindow):
                 event.ignore()
                 return
         self.audio_panel.shutdown()
+        self.tutorial_panel.shutdown()
         try:
             self.config_store.save(self._current_config())
         except OSError:

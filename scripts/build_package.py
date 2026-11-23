@@ -11,17 +11,17 @@ ROOT = Path(__file__).resolve().parents[1]
 DIST_ROOT = ROOT / "dist" / "Windows-x64"
 DIST = DIST_ROOT / "TingTao"
 LAUNCHER = DIST_ROOT / "TingTao.exe"
-STAGE = ROOT / "build-cache" / "stage-1.6.4"
-WORK = ROOT / "build-cache" / "pyinstaller-1.6.4"
-UPDATER_STAGE = ROOT / "build-cache" / "updater-stage-1.6.4"
-UPDATER_WORK = ROOT / "build-cache" / "updater-pyinstaller-1.6.4"
-LAUNCHER_STAGE = ROOT / "build-cache" / "launcher-stage-1.6.4"
-LAUNCHER_WORK = ROOT / "build-cache" / "launcher-pyinstaller-1.6.4"
+STAGE = ROOT / "build-cache" / "stage-1.6.5"
+WORK = ROOT / "build-cache" / "pyinstaller-1.6.5"
+UPDATER_STAGE = ROOT / "build-cache" / "updater-stage-1.6.5"
+UPDATER_WORK = ROOT / "build-cache" / "updater-pyinstaller-1.6.5"
+LAUNCHER_STAGE = ROOT / "build-cache" / "launcher-stage-1.6.5"
+LAUNCHER_WORK = ROOT / "build-cache" / "launcher-pyinstaller-1.6.5"
 PYTHON = ROOT / ".venv" / "Scripts" / "python.exe"
 PYINSTALLER = ROOT / ".venv" / "Scripts" / "pyinstaller.exe"
-VERSION = "1.6.4"
+VERSION = "1.6.5"
 
-USAGE = """观海·听涛 1.6.4 · 完全离线语音转录
+USAGE = """观海·听涛 1.6.5 · 完全离线语音转录
 ====================================
 观海听涛，声落成章。
 
@@ -59,8 +59,13 @@ USAGE = """观海·听涛 1.6.4 · 完全离线语音转录
 3. 阈值越高越谨慎。短于 0.8 秒、重叠语音或相似声音可能无法可靠区分，显示未知说话人。
 4. 声纹仅用于文稿整理，不用于司法身份认定；data/voiceprints.json 升级时受保护。
 
+内嵌使用教学
+- 左侧“使用教学”或 F1 打开“听涛学堂”，共 12 章详细图文与中文语音讲解。
+- 支持全文搜索、上一章／下一章、播放／暂停／停止、进度拖动、音量及 0.75–1.5 倍速。
+- 所有 WAV 讲解均随程序本地提供，播放不联网、不调用在线语音服务；离开教学页或退出自动停止。
+
 快捷键
-Ctrl+O 添加文件；Ctrl+Enter 开始；Ctrl+S 另存 TXT。
+Ctrl+O 添加文件；Ctrl+Enter 开始；Ctrl+S 另存 TXT；F1 打开使用教学。
 
 古典皮肤
 “模型与系统”页可切换“山海古典／素简现代”。古典标题使用系统楷体、宋体或 Noto 字体回退，
@@ -73,7 +78,7 @@ Ctrl+O 添加文件；Ctrl+Enter 开始；Ctrl+S 另存 TXT。
 - large-v3 未内置。实际资源取决于 CPU、音频长度、搜索宽度和系统负载。
 
 离线增量升级
-- 从观海·听涛 1.6.4 起，直接选择收到的增量 ZIP 即可，无需解压或进入 TingTaoUpdate；仍兼容单独选择 .ttupdate。
+- 直接选择收到的增量 ZIP 即可，无需解压或进入 TingTaoUpdate；仍兼容单独选择 .ttupdate。
 - 软件自动定位唯一载荷并校验版本与文件哈希，在古典风确认页直接展示发行说明、文件数量和载荷大小。
 - 点击“一键升级并重启”后自动备份、安装并启动新版，失败回滚，不使用独立升级工具。
 - config.json、data、small 和 medium 不受修改；音频库、声纹库、录音和转录记录均受保护。
@@ -158,6 +163,7 @@ def copy_assets() -> None:
         "ocean-intro.wav", "source-chime.wav",
     ):
         shutil.copy2(ROOT / "assets" / name, assets / name)
+    shutil.copytree(ROOT / "assets" / "tutorial", assets / "tutorial")
     if (ROOT / "assets-manifest.json").is_file():
         shutil.copy2(ROOT / "assets-manifest.json", DIST / "assets-manifest.json")
     for name in ("output", "temp", "logs"):
@@ -232,10 +238,11 @@ def write_build_info() -> None:
         "update_format": "tinglan-offline-update-v1",
         "application_and_model_updates_separated": False,
         "application_update_excludes": ["data", "models/faster-whisper-small", "models/faster-whisper-medium", "config.json"],
-        "model_update_policy": "1.6.4 updates application and local sound assets only; existing ASR, voiceprint models and user data are protected",
+        "model_update_policy": "1.6.5 updates application and local sound assets only; existing ASR, voiceprint models and user data are protected",
         "audio_presets": {"default": "original", "optional": ["light", "standard"], "modifies_source": False},
         "recording": {"history_waveform_seconds": 60, "peak_meter_db_ticks": [-12, -6, 0], "limiter_default": True, "automatic_gain_default": False, "denoise_levels": ["off", "low", "medium", "high"], "controls_live_during_recording": True, "window_and_taskbar_tally": True},
         "opening_scene": {"local_animation": True, "local_ocean_sound": True, "skippable": True},
+        "tutorial": {"chapters": 12, "detailed_html": True, "local_chinese_narration": True, "audio_files": 12, "audio_directory": "assets/tutorial", "search": True, "playback_rates": [0.75, 1.0, 1.25, 1.5], "keyboard_shortcut": "F1", "online_tts_required": False},
         "larger_model_estimates_not_benchmarked": {
             "large-v3": {"model_gb": 3.09, "peak_ram_gb": [6, 10], "relative_cpu_time": [4, 8]},
         },

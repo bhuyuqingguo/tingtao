@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 import math
+import time
 from pathlib import Path
 
 from PySide6.QtGui import QColor
+from PySide6.QtMultimedia import QMediaPlayer
 from PySide6.QtWidgets import QApplication, QInputDialog, QLabel, QMessageBox
 
 from offline_transcriber.main_window import MainWindow
@@ -13,7 +15,7 @@ from offline_transcriber.update_dialog import UpdateConfirmationDialog
 
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "build-cache" / "gui-1.6.4"
+OUT = ROOT / "build-cache" / "gui-1.6.5"
 OUT.mkdir(parents=True, exist_ok=True)
 app = QApplication([])
 window = MainWindow()
@@ -43,6 +45,40 @@ for index, name in ((0, "workspace.png"), (1, "recording.png"), (3, "system.png"
     assert window.grab().save(str(OUT / name))
 window._set_recording_tally(False)
 
+# Exercise real chapter navigation, search, local media decoding and playback controls.
+window._show_page(4)
+tutorial = window.tutorial_panel
+assert len(window.nav_buttons) == 5
+assert tutorial.chapter_list.count() == 12
+assert "第一次转录" in tutorial.content.toPlainText()
+assert not tutorial.player.source().isEmpty()
+deadline = time.monotonic() + 10
+while tutorial.player.duration() <= 0 and time.monotonic() < deadline:
+    app.processEvents()
+    time.sleep(0.02)
+assert tutorial.player.duration() > 20_000, tutorial.narration_status.text()
+tutorial.toggle_playback()
+deadline = time.monotonic() + 5
+while tutorial.player.position() < 250 and time.monotonic() < deadline:
+    app.processEvents()
+    time.sleep(0.02)
+assert tutorial.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState
+assert tutorial.player.position() >= 200
+tutorial.toggle_playback()
+assert tutorial.player.playbackState() == QMediaPlayer.PlaybackState.PausedState
+tutorial.search.setText("加密")
+visible = [row for row in range(12) if not tutorial.chapter_list.item(row).isHidden()]
+assert visible and len(visible) < 12
+tutorial.search.clear()
+tutorial.chapter_list.setCurrentRow(0)
+tutorial.next_button.click()
+assert tutorial.chapter_list.currentRow() == 1
+tutorial.chapter_list.setCurrentRow(0)
+app.processEvents()
+assert tutorial.grab().save(str(OUT / "tutorial.png"))
+window._show_page(0)
+assert tutorial.player.playbackState() == QMediaPlayer.PlaybackState.StoppedState
+
 # Real secondary widgets, rather than a mock drawing of their intended style.
 dialog = QInputDialog(window)
 dialog.setWindowTitle("启用音频库加密")
@@ -68,8 +104,8 @@ assert message.grab().save(str(OUT / "message-dialog.png"))
 message.close()
 
 update_dialog = UpdateConfirmationDialog({
-    "from_version": "1.6.3", "to_version": "1.6.4", "package_kind": "application",
-    "distribution_path": str(ROOT / "dist" / "TingTao-1.6.3-to-1.6.4-Windows-x64-Incremental.zip"),
+    "from_version": "1.6.4", "to_version": "1.6.5", "package_kind": "application",
+    "distribution_path": str(ROOT / "dist" / "TingTao-1.6.4-to-1.6.5-Windows-x64-Incremental.zip"),
     "total_payload_bytes": 12 * 1024 * 1024, "files": [{}, {}, {}, {}],
     "release_notes": "直接选择增量 ZIP，无需解压或处理 manifest。\n发行说明清晰展示，确认后一键升级并自动重启。\n个人配置、音频库、转录记录和模型保持不变。",
 }, window)

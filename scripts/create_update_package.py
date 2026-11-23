@@ -43,10 +43,10 @@ def files_by_relative(root: Path) -> dict[str, Path]:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Create a two-item TingTao in-app incremental update package")
-    parser.add_argument("--old", type=Path, default=ROOT / "build-cache" / "self-update-acceptance-1.6.3" / "TingTao")
+    parser.add_argument("--old", type=Path, default=ROOT / "build-cache" / "self-update-acceptance-1.6.4" / "TingTao")
     parser.add_argument("--new", type=Path, default=ROOT / "dist" / "Windows-x64" / "TingTao")
     parser.add_argument("--platform", choices=("windows", "kylin"), default="windows")
-    parser.add_argument("--work", type=Path, default=ROOT / "build-cache" / "update-package-1.6.4")
+    parser.add_argument("--work", type=Path, default=ROOT / "build-cache" / "update-package-1.6.5")
     parser.add_argument("--archive", type=Path)
     return parser.parse_args()
 
@@ -89,7 +89,7 @@ def main() -> None:
         "created_at": datetime.now().astimezone().isoformat(), "files": changed, "deletes": deletes,
         "total_payload_bytes": sum(item["size"] for item in changed),
         "protected_paths": ["data", "models/faster-whisper-small", "models/faster-whisper-medium", "config.json"],
-        "release_notes": "一、直接读取增量 ZIP：无需解压，也不用进入 TingTaoUpdate 或处理 manifest。\n二、单一文件完成升级：选择收到的 ZIP，读取、校验、确认、备份、安装和重启均在当前软件内完成。\n三、全新发行说明页：清晰展示版本变化、文件数量、载荷大小和本版改进。\n四、安全保留：版本与文件哈希严格校验，失败自动回滚；配置、音频库、记录和模型保持不变。",
+        "release_notes": "一、新增听涛学堂：12 章详细图文教学，覆盖转录、录音、音频库、导出、声纹、纪要、升级与故障排查。\n二、本地中文语音：每章独立讲解，支持全文搜索、播放／暂停／停止、进度拖动、音量与 0.75–1.5 倍速。\n三、便捷入口：左侧导航新增使用教学，按 F1 随时打开；切换页面或退出自动停止讲解。\n四、完全离线与安全保留：语音资源随包提供，不调用在线服务；配置、音频库、记录和模型保持不变。",
     }
     args.work.mkdir(parents=True, exist_ok=True)
     update.unlink(missing_ok=True)
@@ -109,30 +109,26 @@ def main() -> None:
         "small_and_medium_models_modified": False, "user_data_modified": False,
         "top_level_items": [launcher_name, "TingTaoUpdate"],
     }
-    readme = f"""观海·听涛 {to_version} · 录音体验与界面改进离线增量包
+    readme = f"""观海·听涛 {to_version} · 内嵌教学与本地语音离线增量包
 ================================================
 适用版本：{from_version} → {to_version}；平台：{platform_name}
 
-从 1.6.3 升级到本版（仅此一次仍用旧入口）
-1. 完整解压本 ZIP。顶层严格只有 {launcher_name} 和 TingTaoUpdate 两项。
-2. 打开现有观海·听涛，进入“模型与系统”→“导入离线增量包”。
-3. 选择 TingTaoUpdate 内的 {update.name}，点击“一键升级”。
-4. 当前程序会自行校验、备份、安装和失败回滚；Windows 自动重启一次完成被占用文件替换。
-5. 不需要、也不应使用任何独立升级工具。
-
-升级到 1.6.4 后的日常流程
-直接选择整个增量 ZIP，无需解压。软件自动读取载荷并展示发行说明，确认后一键升级并重启。
+一键升级
+1. 打开现有观海·听涛 {from_version}，进入“模型与系统”→“导入离线增量包”。
+2. 直接选择本 ZIP，无需解压或进入 TingTaoUpdate。
+3. 阅读发行说明后点击“一键升级并重启”，软件自动校验、备份、安装并启动新版。
+4. 不需要任何独立升级工具；失败自动回滚。
 
 新版内容
-- 直接识别当前发布的增量 ZIP，不再要求用户寻找 .ttupdate 或处理 manifest。
-- 保留单独选择 .ttupdate 的兼容入口；无载荷、多个载荷和伪 ZIP 均会拒绝。
-- 古典风发行说明页展示版本、文件数量、净载荷和详细更新内容。
-- 读取、校验、确认、备份、安装、回滚与重启全部在当前软件内完成。
+- 新增“听涛学堂”：12 章详细图文，涵盖转录、批量队列、录音、音频库、导出、声纹、纪要、记录、升级、性能与排障。
+- 每章附独立本地中文语音，支持搜索、播放／暂停／停止、进度、音量、0.75–1.5 倍速及章节切换。
+- 左侧导航新增“使用教学”，F1 随时打开；离开教学页或退出自动停止播放。
+- 语音 WAV 随程序提供，播放全程离线，不调用在线语音服务。
 
 安全与保留内容
-- 全程离线；安装前校验源版本、旧文件哈希、载荷大小和 SHA-256，失败自动回滚。
+- 安装前校验源版本、旧文件哈希、载荷大小和 SHA-256，失败自动回滚。
 - config.json、data（音频库、声纹库、记录、日志、输出）、small 和 medium 均不修改。
-- 加密密码遗忘后无法恢复；导出的普通音频和文稿不在自动加密范围内。
+- 增量 ZIP 顶层严格只有 {launcher_name} 与 TingTaoUpdate 两项。
 """
     archive.parent.mkdir(parents=True, exist_ok=True)
     archive.unlink(missing_ok=True)

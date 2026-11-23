@@ -1,0 +1,114 @@
+{
+  "offline": true,
+  "voice": "Microsoft Huihui Desktop",
+  "chapters": [
+    {
+      "chapter": 1,
+      "title": "第一次转录",
+      "file": "assets/tutorial/01.wav",
+      "bytes": 1536158,
+      "duration_seconds": 34.83,
+      "voice": "Microsoft Huihui Desktop",
+      "language": "zh-CN"
+    },
+    {
+      "chapter": 2,
+      "title": "添加文件与批量模式",
+      "file": "assets/tutorial/02.wav",
+      "bytes": 1372572,
+      "duration_seconds": 31.12,
+      "voice": "Microsoft Huihui Desktop",
+      "language": "zh-CN"
+    },
+    {
+      "chapter": 3,
+      "title": "模型与识别参数",
+      "file": "assets/tutorial/03.wav",
+      "bytes": 1523812,
+      "duration_seconds": 34.55,
+      "voice": "Microsoft Huihui Desktop",
+      "language": "zh-CN"
+    },
+    {
+      "chapter": 4,
+      "title": "录音完整流程",
+      "file": "assets/tutorial/04.wav",
+      "bytes": 1598540,
+      "duration_seconds": 36.25,
+      "voice": "Microsoft Huihui Desktop",
+      "language": "zh-CN"
+    },
+    {
+      "chapter": 5,
+      "title": "音频库与加密",
+      "file": "assets/tutorial/05.wav",
+      "bytes": 1445130,
+      "duration_seconds": 32.77,
+      "voice": "Microsoft Huihui Desktop",
+      "language": "zh-CN"
+    },
+    {
+      "chapter": 6,
+      "title": "文稿检查与导出",
+      "file": "assets/tutorial/06.wav",
+      "bytes": 1429724,
+      "duration_seconds": 32.42,
+      "voice": "Microsoft Huihui Desktop",
+      "language": "zh-CN"
+    },
+    {
+      "chapter": 7,
+      "title": "声纹与讲话人",
+      "file": "assets/tutorial/07.wav",
+      "bytes": 1340200,
+      "duration_seconds": 30.39,
+      "voice": "Microsoft Huihui Desktop",
+      "language": "zh-CN"
+    },
+    {
+      "chapter": 8,
+      "title": "一键形成纪要",
+      "file": "assets/tutorial/08.wav",
+      "bytes": 1332918,
+      "duration_seconds": 30.22,
+      "voice": "Microsoft Huihui Desktop",
+      "language": "zh-CN"
+    },
+    {
+      "chapter": 9,
+      "title": "转录记录与命名",
+      "file": "assets/tutorial/09.wav",
+      "bytes": 1240992,
+      "duration_seconds": 28.14,
+      "voice": "Microsoft Huihui Desktop",
+      "language": "zh-CN"
+    },
+    {
+      "chapter": 10,
+      "title": "离线增量升级",
+      "file": "assets/tutorial/10.wav",
+      "bytes": 1575178,
+      "duration_seconds": 35.72,
+      "voice": "Microsoft Huihui Desktop",
+      "language": "zh-CN"
+    },
+    {
+      "chapter": 11,
+      "title": "性能与资源规划",
+      "file": "assets/tutorial/11.wav",
+      "bytes": 1393308,
+      "duration_seconds": 31.59,
+      "voice": "Microsoft Huihui Desktop",
+      "language": "zh-CN"
+    },
+    {
+      "chapter": 12,
+      "title": "故障排查清单",
+      "file": "assets/tutorial/12.wav",
+      "bytes": 1478428,
+      "duration_seconds": 33.52,
+      "voice": "Microsoft Huihui Desktop",
+      "language": "zh-CN"
+    }
+  ]
+}
