@@ -15,16 +15,16 @@ ROOT = Path(__file__).resolve().parents[1]
 DIST_ROOT = ROOT / "dist" / "Kylin-x86_64"
 DIST = DIST_ROOT / "TingTaoData"
 LAUNCHER = DIST_ROOT / "TingTao"
-STAGE = ROOT / "build-cache" / "kylin-stage-1.5.0"
-WORK = ROOT / "build-cache" / "kylin-pyinstaller-1.5.0"
-UPDATER_STAGE = ROOT / "build-cache" / "kylin-updater-stage-1.5.0"
-UPDATER_WORK = ROOT / "build-cache" / "kylin-updater-pyinstaller-1.5.0"
-LAUNCHER_STAGE = ROOT / "build-cache" / "kylin-launcher-stage-1.5.0"
-LAUNCHER_WORK = ROOT / "build-cache" / "kylin-launcher-pyinstaller-1.5.0"
-ARCHIVE = ROOT / "dist" / "TingTao-1.5.0-Kylin-x86_64-Offline.zip"
-VERSION = "1.5.0"
+STAGE = ROOT / "build-cache" / "kylin-stage-1.6.0"
+WORK = ROOT / "build-cache" / "kylin-pyinstaller-1.6.0"
+UPDATER_STAGE = ROOT / "build-cache" / "kylin-updater-stage-1.6.0"
+UPDATER_WORK = ROOT / "build-cache" / "kylin-updater-pyinstaller-1.6.0"
+LAUNCHER_STAGE = ROOT / "build-cache" / "kylin-launcher-stage-1.6.0"
+LAUNCHER_WORK = ROOT / "build-cache" / "kylin-launcher-pyinstaller-1.6.0"
+ARCHIVE = ROOT / "dist" / "TingTao-1.6.0-Kylin-x86_64-Offline.zip"
+VERSION = "1.6.0"
 
-USAGE = """观海·听涛 1.5.0 · 银河麒麟 V10 x86_64 完全离线语音转录
+USAGE = """观海·听涛 1.6.0 · 银河麒麟 V10 x86_64 完全离线语音转录
 ======================================================
 观海听涛，声落成章。
 
@@ -140,11 +140,12 @@ def copy_assets() -> None:
     for name in (
         "guanhai-tingtao-logo-generated.png", "guanhai-tingtao-logo.png",
         "guanhai-tingtao-logo-256.png", "guanhai-tingtao-logo-64.png", "app.ico",
+        "ocean-intro.wav", "source-chime.wav",
     ):
         shutil.copy2(ROOT / "assets" / name, assets / name)
     for name in ("output", "temp", "logs"):
         (DIST / "data" / name).mkdir(parents=True, exist_ok=True)
-    config = {"language": "zh", "beam_size": 5, "vad_filter": True, "output_directory": "", "batch_mode": "queue", "theme": "classical", "model_name": "small", "speaker_enabled": False, "speaker_threshold": 0.55}
+    config = {"language": "zh", "beam_size": 5, "vad_filter": True, "output_directory": "", "batch_mode": "queue", "theme": "classical", "model_name": "small", "speaker_enabled": False, "speaker_threshold": 0.55, "audio_preset": "original"}
     (DIST / "config.json").write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8")
     (DIST / "使用说明.txt").write_text(USAGE, encoding="utf-8")
     (DIST / "verify_package.sh").write_text(VERIFY_SH, encoding="utf-8")
@@ -210,7 +211,7 @@ def write_build_info() -> None:
         "update_format": "tinglan-offline-update-v1",
         "application_and_model_updates_separated": False,
         "application_update_excludes": ["data", "models/faster-whisper-small", "models/faster-whisper-medium", "config.json"],
-        "model_update_policy": "1.5.0 adds only models/wespeaker-cnceleb-resnet34-LM; existing ASR models and user data are protected",
+        "model_update_policy": "1.6.0 updates application and local sound assets only; existing ASR, voiceprint models and user data are protected",
         "larger_model_estimates_not_benchmarked": {
             "large-v3": {"model_gb": 3.09, "peak_ram_gb": [6, 10], "relative_cpu_time": [4, 8]},
         },

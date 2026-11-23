@@ -111,7 +111,15 @@ def main() -> int:
     if LOGO_PATH.is_file():
         app.setWindowIcon(QIcon(str(LOGO_PATH)))
     window = MainWindow()
-    window.show()
+    if "--no-splash" in sys.argv:
+        window.show()
+    else:
+        from .splash import OceanSplash
+        splash = OceanSplash(LOGO_PATH)
+        splash.finished.connect(window.show)
+        splash.show()
+        # Keep the opening scene alive until its timer or click closes it.
+        app._ocean_splash = splash
     return app.exec()
 
 

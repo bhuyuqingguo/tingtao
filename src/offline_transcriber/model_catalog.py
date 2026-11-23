@@ -15,8 +15,8 @@ class ModelSpec:
 
 
 MODEL_SPECS = {
-    "small": ModelSpec("small", "small · 快速均衡", "faster-whisper-small", "速度优先，适合日常转录"),
-    "medium": ModelSpec("medium", "medium · 更高精度", "faster-whisper-medium", "模型更大，识别更细致，耗时和内存更高"),
+    "small": ModelSpec("small", "轻量模型 · 快速识别", "faster-whisper-small", "速度优先，适合日常转录"),
+    "medium": ModelSpec("medium", "精准模型 · 细致识别", "faster-whisper-medium", "模型更大，识别更细致，耗时和内存更高"),
 }
 DEFAULT_MODEL = "small"
 REQUIRED_MODEL_FILES = ("model.bin", "config.json", "tokenizer.json", "vocabulary.txt")

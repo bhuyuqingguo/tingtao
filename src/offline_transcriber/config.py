@@ -4,6 +4,7 @@ import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from .audio_processing import AUDIO_PRESETS
 from .model_catalog import DEFAULT_MODEL, MODEL_SPECS
 from .paths import CONFIG_PATH, OUTPUT_ROOT
 
@@ -19,6 +20,7 @@ class AppConfig:
     model_name: str = DEFAULT_MODEL
     speaker_enabled: bool = False
     speaker_threshold: float = 0.55
+    audio_preset: str = "original"
 
 
 class ConfigStore:
@@ -44,6 +46,8 @@ class ConfigStore:
                 config.theme = "classical"
             if config.model_name not in MODEL_SPECS:
                 config.model_name = DEFAULT_MODEL
+            if config.audio_preset not in AUDIO_PRESETS:
+                config.audio_preset = "original"
             return config
         except (OSError, ValueError, TypeError, json.JSONDecodeError):
             return AppConfig()

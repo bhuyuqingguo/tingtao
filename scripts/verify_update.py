@@ -13,11 +13,11 @@ from verify_package import load_success, offline_environment
 
 
 ROOT = Path(__file__).resolve().parents[1]
-OLD = ROOT / "dist" / "Windows-x64-1.4.0" / "TingTao"
+OLD = ROOT / "dist" / "TingTao-1.5.0-Windows-x64-Offline" / "TingTao"
 DIST_ROOT = ROOT / "dist" / "Windows-x64"
 DIST = DIST_ROOT / "TingTao"
-ARCHIVE = ROOT / "dist" / "TingTao-1.4.0-to-1.5.0-Windows-x64-Incremental.zip"
-ACCEPTANCE = ROOT / "build-cache" / "update-acceptance-1.5.0"
+ARCHIVE = ROOT / "dist" / "TingTao-1.5.0-to-1.6.0-Windows-x64-Incremental.zip"
+ACCEPTANCE = ROOT / "build-cache" / "update-acceptance-1.6.0"
 AUDIO = ROOT / "assets" / "test-zh.wav"
 
 
@@ -42,7 +42,7 @@ def main() -> None:
         if top_level != {"TingTao.exe", "TingTaoUpdate"} or archive.testzip():
             raise RuntimeError(f"Incremental ZIP rule or CRC failed: {top_level}")
         archive.extractall(incremental)
-    package = incremental / "TingTaoUpdate" / "TingTao-1.4.0-to-1.5.0.ttupdate"
+    package = incremental / "TingTaoUpdate" / "TingTao-1.5.0-to-1.6.0.ttupdate"
     with zipfile.ZipFile(package) as archive:
         names = archive.namelist()
         if any(name.startswith("payload/data/") or name == "payload/config.json" for name in names):
@@ -90,7 +90,7 @@ def main() -> None:
     if completed.returncode != 0 or not report_path.is_file():
         raise RuntimeError(f"Embedded update failed: {completed.stdout}\n{completed.stderr}")
     update_report = json.loads(report_path.read_text(encoding="utf-8"))
-    if json.loads(build_info_path.read_text(encoding="utf-8")).get("version") != "1.5.0":
+    if json.loads(build_info_path.read_text(encoding="utf-8")).get("version") != "1.6.0":
         raise RuntimeError("Updated build information is incorrect")
     if not executable.is_file() or sha256(executable) == old_exe_hash:
         raise RuntimeError("Application was not updated")
@@ -103,8 +103,8 @@ def main() -> None:
     if sha256(small_path) != small_before:
         raise RuntimeError("Existing small model changed")
     backup = Path(update_report["backup"])
-    if not (backup / "TingTao.exe").is_file() or not (backup / "TingTaoUpdater.exe").is_file():
-        raise RuntimeError("Replaced executable and removed legacy updater were not backed up")
+    if not (backup / "TingTao.exe").is_file():
+        raise RuntimeError("Replaced executable was not backed up")
 
     powershell = subprocess.run(
         ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(target / "verify_package.ps1")],
@@ -131,9 +131,9 @@ def main() -> None:
 
     report = {
         "verified_at": datetime.now(timezone.utc).astimezone().isoformat(),
-        "from_version": "1.4.0", "to_version": "1.5.0",
+        "from_version": "1.5.0", "to_version": "1.6.0",
         "incremental_top_level_items": ["TingTao.exe", "TingTaoUpdate"],
-        "embedded_updater_test": True, "standalone_updater_removed": True,
+        "embedded_updater_test": True, "standalone_updater_present": False,
         "wrong_version_rejected_before_writes": True, "update_success": True,
         "backup_created": True, "configuration_preserved": True,
         "transcription_record_preserved": True, "audio_library_preserved": True,
@@ -141,7 +141,7 @@ def main() -> None:
         "updated_integrity_manifest_powershell_test": True,
         "updated_offline_small_transcription_test": True, "updated_gui_startup_test": True,
         "updated_files": update_report["updated_files"], "deleted_files": update_report["deleted_files"],
-        "notes": "Actual 1.4.0-to-1.5.0 payload applied to a copied deployment by the 1.5.0 embedded engine. Later updates use the installed application's own one-click workflow.",
+        "notes": "Actual 1.5.0-to-1.6.0 payload applied to a copied deployment by the 1.6.0 embedded engine. Installed 1.5.0 uses its own one-click workflow; this direct engine pass tests the same validated update engine without GUI automation.",
     }
     (DIST / "UPDATE_VERIFICATION.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(report, ensure_ascii=False, indent=2))

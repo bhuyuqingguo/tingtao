@@ -11,17 +11,17 @@ ROOT = Path(__file__).resolve().parents[1]
 DIST_ROOT = ROOT / "dist" / "Windows-x64"
 DIST = DIST_ROOT / "TingTao"
 LAUNCHER = DIST_ROOT / "TingTao.exe"
-STAGE = ROOT / "build-cache" / "stage-1.5.0"
-WORK = ROOT / "build-cache" / "pyinstaller-1.5.0"
-UPDATER_STAGE = ROOT / "build-cache" / "updater-stage-1.5.0"
-UPDATER_WORK = ROOT / "build-cache" / "updater-pyinstaller-1.5.0"
-LAUNCHER_STAGE = ROOT / "build-cache" / "launcher-stage-1.5.0"
-LAUNCHER_WORK = ROOT / "build-cache" / "launcher-pyinstaller-1.5.0"
+STAGE = ROOT / "build-cache" / "stage-1.6.0"
+WORK = ROOT / "build-cache" / "pyinstaller-1.6.0"
+UPDATER_STAGE = ROOT / "build-cache" / "updater-stage-1.6.0"
+UPDATER_WORK = ROOT / "build-cache" / "updater-pyinstaller-1.6.0"
+LAUNCHER_STAGE = ROOT / "build-cache" / "launcher-stage-1.6.0"
+LAUNCHER_WORK = ROOT / "build-cache" / "launcher-pyinstaller-1.6.0"
 PYTHON = ROOT / ".venv" / "Scripts" / "python.exe"
 PYINSTALLER = ROOT / ".venv" / "Scripts" / "pyinstaller.exe"
-VERSION = "1.5.0"
+VERSION = "1.6.0"
 
-USAGE = """观海·听涛 1.5.0 · 完全离线语音转录
+USAGE = """观海·听涛 1.6.0 · 完全离线语音转录
 ====================================
 观海听涛，声落成章。
 
@@ -40,9 +40,17 @@ USAGE = """观海·听涛 1.5.0 · 完全离线语音转录
 
 录音、音频库与加密
 1. “录音与音频库”页可选择系统输入音源，录制 16 kHz 单声道 WAV，命名收存后立即加入离线转录。
-2. 支持导入、重命名、关键词库、搜索、播放、导出、删除和批量加入转录。
-3. 可选 AES-256-GCM 加密，音频内容、名称和关键词均加密；密码至少 8 字符且不会保存，遗忘无法恢复。
-4. 播放或转录加密音频时生成会话临时副本，锁定或退出自动清除。导出的普通音频和文稿不自动加密。
+2. 实时波形与 -12／-6／0 dB 分色电平表用于观察输入；提示音不会把麦克风回放到扬声器。
+3. 录音时窗口红框闪烁，标题和任务栏图标出现红色提示；数字限幅有关闭、温和、标准三档。
+4. 数字限幅只处理写入文件的峰值，不能修复麦克风或声卡已经发生的削波。
+5. 支持导入、重命名、关键词库、搜索、播放、导出、删除和批量加入转录。
+6. 可选 AES-256-GCM 加密，音频内容、名称和关键词均加密；密码至少 8 字符且不会保存，遗忘无法恢复。
+7. 播放或转录加密音频时生成会话临时副本，锁定或退出自动清除。导出的普通音频和文稿不自动加密。
+
+开场与转录前处理
+- 开场动画和海浪音效均为本地资源，可点击跳过。
+- 工作台默认“原声”，可选轻度或标准降噪与响度归一化；只处理识别用临时音频，不修改原文件。
+- 清晰合成中文样本的三档识别文本一致，但不代表所有真实噪声环境都有收益；建议重要音频先与原声对照。
 
 声纹识别
 1. 勾选“识别讲话人并匹配声纹库”后按转录片段分离，导出文稿显示讲话人。
@@ -67,7 +75,7 @@ Ctrl+O 添加文件；Ctrl+Enter 开始；Ctrl+S 另存 TXT。
 - “模型与系统”页导入 .ttupdate；仍兼容读取旧 .tlupdate 清单格式。
 - 升级前校验版本与旧文件哈希，自动备份，失败回滚。
 - config.json、data、small 和 medium 不受修改；音频库、声纹库、录音和转录记录均受保护。
-- 从观海·听涛 1.4.0 升级：在当前软件“模型与系统”页选择解压后的 .ttupdate，点击“一键升级”。
+- 从观海·听涛 1.5.0 升级：在当前软件“模型与系统”页选择解压后的 .ttupdate，点击“一键升级”。
   当前程序自行校验、备份、安装与失败回滚；Windows 自动重启一次，不使用独立升级工具。
 
 完整性与自检
@@ -146,13 +154,14 @@ def copy_assets() -> None:
     for name in (
         "guanhai-tingtao-logo-generated.png", "guanhai-tingtao-logo.png",
         "guanhai-tingtao-logo-256.png", "guanhai-tingtao-logo-64.png", "app.ico",
+        "ocean-intro.wav", "source-chime.wav",
     ):
         shutil.copy2(ROOT / "assets" / name, assets / name)
     if (ROOT / "assets-manifest.json").is_file():
         shutil.copy2(ROOT / "assets-manifest.json", DIST / "assets-manifest.json")
     for name in ("output", "temp", "logs"):
         (DIST / "data" / name).mkdir(parents=True, exist_ok=True)
-    config = {"language": "zh", "beam_size": 5, "vad_filter": True, "output_directory": "", "batch_mode": "queue", "theme": "classical", "model_name": "small", "speaker_enabled": False, "speaker_threshold": 0.55}
+    config = {"language": "zh", "beam_size": 5, "vad_filter": True, "output_directory": "", "batch_mode": "queue", "theme": "classical", "model_name": "small", "speaker_enabled": False, "speaker_threshold": 0.55, "audio_preset": "original"}
     (DIST / "config.json").write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8")
     (DIST / "使用说明.txt").write_text(USAGE, encoding="utf-8-sig")
     (DIST / "verify_package.ps1").write_text(VERIFY_PS1, encoding="utf-8-sig")
@@ -222,7 +231,10 @@ def write_build_info() -> None:
         "update_format": "tinglan-offline-update-v1",
         "application_and_model_updates_separated": False,
         "application_update_excludes": ["data", "models/faster-whisper-small", "models/faster-whisper-medium", "config.json"],
-        "model_update_policy": "1.5.0 adds only models/wespeaker-cnceleb-resnet34-LM; existing ASR models and user data are protected",
+        "model_update_policy": "1.6.0 updates application and local sound assets only; existing ASR, voiceprint models and user data are protected",
+        "audio_presets": {"default": "original", "optional": ["light", "standard"], "modifies_source": False},
+        "recording": {"waveform": True, "peak_meter_db_ticks": [-12, -6, 0], "limiter": ["off", "gentle", "standard"], "window_and_taskbar_tally": True},
+        "opening_scene": {"local_animation": True, "local_ocean_sound": True, "skippable": True},
         "larger_model_estimates_not_benchmarked": {
             "large-v3": {"model_gb": 3.09, "peak_ram_gb": [6, 10], "relative_cpu_time": [4, 8]},
         },

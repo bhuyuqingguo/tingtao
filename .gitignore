@@ -19,6 +19,8 @@ config.json
 *.m4a
 *.mp4
 !assets/test-zh.wav
+!assets/ocean-intro.wav
+!assets/source-chime.wav
 
 # Builds and release artifacts
 build-cache/

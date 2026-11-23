@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 
 from PySide6.QtCore import QUrl, Qt, Signal
-from PySide6.QtGui import QColor, QCloseEvent, QDesktopServices, QFont, QIcon, QKeySequence, QPalette, QPixmap, QShortcut
+from PySide6.QtGui import QColor, QCloseEvent, QDesktopServices, QFont, QIcon, QKeySequence, QPainter, QPalette, QPixmap, QShortcut
 from PySide6.QtWidgets import (
     QApplication, QButtonGroup, QCheckBox, QComboBox, QDialog, QFileDialog, QFrame,
     QGridLayout, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget, QListWidgetItem,
@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 
 from . import __version__
 from .audio_panel import AudioLibraryPanel
+from .audio_processing import AUDIO_PRESETS
 from .batch import MERGED_MODE, QUEUE_MODE, BatchSummary
 from .config import AppConfig, ConfigStore
 from .document_export import save_document
@@ -27,6 +28,7 @@ from .minutes import generate_minutes
 from .model_catalog import MODEL_SPECS, model_binary_size, model_is_complete
 from .paths import APP_ROOT, LOG_ROOT, OUTPUT_ROOT, ensure_data_directories
 from .record_naming import read_record_text, rename_record, suggest_name_from_text
+from .recording_widgets import RecordingBorder
 from .speaker import VoiceprintStore
 from .transcriber import TranscriptionResult
 from .update_manager import inspect_update, launch_update
@@ -148,11 +150,39 @@ class MainWindow(QMainWindow):
         self.audio_panel = AudioLibraryPanel()
         self.audio_panel.transcribe_requested.connect(self._add_library_sources)
         self.audio_panel.status_changed.connect(self.status_label.setText)
+        self.audio_panel.recording_changed.connect(self._set_recording_tally)
         self.stack.addWidget(self.audio_panel)
         self.stack.addWidget(self._build_records())
         self.stack.addWidget(self._build_system())
         root_layout.addWidget(self.stack, 1)
         self.setStyleSheet(self._stylesheet())
+        self._base_window_icon = self.windowIcon()
+        self._recording_icon = self._make_recording_icon()
+        self.recording_border = RecordingBorder(self)
+
+    def _make_recording_icon(self) -> QIcon:
+        source = LOGO_PATH if LOGO_PATH.is_file() else None
+        pixmap = QPixmap(str(source)) if source else QPixmap(64, 64)
+        if pixmap.isNull():
+            pixmap = QPixmap(64, 64)
+        pixmap = pixmap.scaled(64, 64, Qt.AspectRatioMode.KeepAspectRatioByExpanding, Qt.TransformationMode.SmoothTransformation)
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setBrush(QColor("#E23832"))
+        painter.setPen(QColor("#FFFFFF"))
+        painter.drawEllipse(42, 4, 19, 19)
+        painter.end()
+        return QIcon(pixmap)
+
+    def _set_recording_tally(self, active: bool) -> None:
+        self.recording_border.set_recording(active)
+        self.setWindowTitle(("● 录音中 · " if active else "") + f"{PRODUCT_NAME} · 本地语音转录")
+        self.setWindowIcon(self._recording_icon if active else self._base_window_icon)
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        if hasattr(self, "recording_border"):
+            self.recording_border.resize(self.size())
 
     def _apply_palette(self) -> None:
         application = QApplication.instance()
@@ -160,12 +190,37 @@ class MainWindow(QMainWindow):
             return
         application.setStyle("Fusion")
         classical = getattr(self.config, "theme", "classical") == "classical"
-        palette = application.palette()
-        for role in (QPalette.ColorRole.Text, QPalette.ColorRole.WindowText, QPalette.ColorRole.ButtonText):
-            palette.setColor(role, QColor("#243B3B" if classical else "#203940"))
-        palette.setColor(QPalette.ColorRole.PlaceholderText, QColor("#857D6D" if classical else "#71868A"))
-        palette.setColor(QPalette.ColorRole.Base, QColor("#FFFCF5" if classical else "#FFFFFF"))
+        window = QColor("#FFFCF5" if classical else "#FFFFFF")
+        text = QColor("#243B3B" if classical else "#203940")
+        muted = QColor("#857D6D" if classical else "#71868A")
+        border = QColor("#D8CBB4" if classical else "#DCE7E4")
+        accent = QColor("#9A6B2F" if classical else "#247B83")
+        palette = QPalette()
+        for role in (QPalette.ColorRole.Window, QPalette.ColorRole.Base, QPalette.ColorRole.AlternateBase,
+                     QPalette.ColorRole.Button, QPalette.ColorRole.ToolTipBase):
+            palette.setColor(role, window)
+        for role in (QPalette.ColorRole.Text, QPalette.ColorRole.WindowText, QPalette.ColorRole.ButtonText,
+                     QPalette.ColorRole.ToolTipText):
+            palette.setColor(role, text)
+        palette.setColor(QPalette.ColorRole.PlaceholderText, muted)
+        palette.setColor(QPalette.ColorRole.Mid, border)
+        palette.setColor(QPalette.ColorRole.Midlight, border)
+        palette.setColor(QPalette.ColorRole.Highlight, accent)
+        palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#FFFFFF"))
+        palette.setColor(QPalette.ColorRole.Link, accent)
+        palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Text, muted)
+        palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.WindowText, muted)
+        palette.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.ButtonText, muted)
         application.setPalette(palette)
+        application.setStyleSheet(
+            f"QDialog, QMessageBox, QInputDialog {{ background: {window.name()}; color: {text.name()}; }}"
+            f"QDialog QLabel, QMessageBox QLabel, QInputDialog QLabel {{ color: {text.name()}; background: transparent; }}"
+            f"QDialog QLineEdit, QDialog QComboBox, QDialog QSpinBox {{ background: {window.name()}; color: {text.name()};"
+            f" border: 1px solid {border.name()}; border-radius: 6px; padding: 6px; selection-background-color: {accent.name()}; }}"
+            f"QDialog QPushButton, QMessageBox QPushButton, QInputDialog QPushButton {{ background: {window.name()};"
+            f" color: {text.name()}; border: 1px solid {border.name()}; border-radius: 6px; padding: 7px 16px; }}"
+            f"QDialog QPushButton:hover, QMessageBox QPushButton:hover {{ border-color: {accent.name()}; }}"
+        )
 
     def _build_sidebar(self) -> QFrame:
         sidebar = QFrame()
@@ -308,7 +363,7 @@ class MainWindow(QMainWindow):
             size = model_binary_size(key)
             size_text = f"{size / 1024 / 1024:.0f} MiB" if size else "未安装"
             self.model_combo.addItem(f"{spec.title} · {size_text}", key)
-        self.model_combo.setToolTip("每次任务仅加载所选模型；medium 更细致，但模型、内存和耗时均高于 small")
+        self.model_combo.setToolTip("每次任务仅加载所选模型；精准模型更细致，但模型、内存和耗时均高于轻量模型")
         self.mode_combo = QComboBox()
         self.mode_combo.addItem("队列逐个转录", QUEUE_MODE)
         self.mode_combo.addItem("合并为一份文稿", MERGED_MODE)
@@ -342,6 +397,16 @@ class MainWindow(QMainWindow):
         settings_grid.addWidget(self.speaker_check, 2, 0, 1, 3)
         settings_grid.addWidget(QLabel("声纹匹配阈值"), 2, 3)
         settings_grid.addWidget(self.speaker_threshold, 2, 4)
+        settings_grid.addWidget(QLabel("转录前声音处理"), 3, 0)
+        self.audio_preset_combo = QComboBox()
+        for key, preset in AUDIO_PRESETS.items():
+            self.audio_preset_combo.addItem(preset["title"], key)
+            self.audio_preset_combo.setItemData(self.audio_preset_combo.count() - 1, preset["description"], Qt.ItemDataRole.ToolTipRole)
+        self.audio_preset_combo.setToolTip("默认原声；降噪和响度归一化只影响识别用临时音频，不修改原文件。建议先与原声对照。")
+        settings_grid.addWidget(self.audio_preset_combo, 3, 1, 1, 2)
+        audio_hint = QLabel("不修改原音频 · 降噪可能损失轻声或远场语音")
+        audio_hint.setObjectName("muted")
+        settings_grid.addWidget(audio_hint, 3, 3, 1, 2)
         settings_grid.setColumnStretch(0, 2)
         settings_grid.setColumnStretch(1, 2)
         settings_grid.setColumnStretch(2, 1)
@@ -379,7 +444,9 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.text_edit, "转录文稿")
         self.tabs.addTab(self.minutes_edit, "会议纪要")
         self.tabs.addTab(self.log_edit, "运行详情")
-        layout.addWidget(self.tabs, 1)
+        self.tabs.setMaximumWidth(760)
+        self.tabs.setMinimumWidth(520)
+        layout.addWidget(self.tabs, 1, Qt.AlignmentFlag.AlignHCenter)
 
         export_row = QHBoxLayout()
         self.export_buttons = {}
@@ -476,7 +543,7 @@ class MainWindow(QMainWindow):
         small_size = model_binary_size("small") / 1024 / 1024
         medium_size = model_binary_size("medium") / 1024 / 1024
         medium_status = "已内置" if model_is_complete("medium") else "未安装"
-        for value, caption in (("small / medium", "工作台可切换"), (f"{small_size + medium_size:.0f} MiB", "双模型文件总量"), (medium_status, "medium 离线模型"), ("单模型驻留", "队列复用同一实例")):
+        for value, caption in (("轻量／精准", "工作台可切换"), (f"{small_size + medium_size:.0f} MiB", "双模型文件总量"), (medium_status, "精准离线模型"), ("单模型驻留", "队列复用同一实例")):
             item = QVBoxLayout()
             value_label = QLabel(value)
             value_label.setObjectName("metricValue")
@@ -491,9 +558,9 @@ class MainWindow(QMainWindow):
         voiceprint_button.clicked.connect(self._manage_voiceprints)
         model_layout.addWidget(voiceprint_button, alignment=Qt.AlignmentFlag.AlignLeft)
         policy = QLabel(
-            "small 适合快速日常转录；medium 适合精度优先任务。每次任务只加载所选模型，不会同时驻留两个模型。"
-            "medium 资源规划（非通用实测承诺）：峰值内存按 3–5 GB、CPU 时间按 small 的约 2–4 倍预留。"
-            "large-v3 未内置；其模型约 3.09 GB，规划峰值内存 6–10 GB。长音频、CPU 和搜索宽度会显著影响实际值。"
+            "轻量模型适合快速日常转录；精准模型适合精度优先任务。每次任务只加载所选模型，不会同时驻留两个模型。"
+            "精准模型资源规划（非通用实测承诺）：峰值内存按 3–5 GB、CPU 时间按轻量模型的约 2–4 倍预留。"
+            "超大模型未内置；其文件约 3.09 GB，规划峰值内存 6–10 GB。长音频、CPU 和搜索宽度会显著影响实际值。"
         )
         policy.setObjectName("muted")
         policy.setWordWrap(True)
@@ -637,6 +704,8 @@ class MainWindow(QMainWindow):
         self.theme_combo.setCurrentIndex(max(0, theme_index))
         model_index = self.model_combo.findData(getattr(self.config, "model_name", "small"))
         self.model_combo.setCurrentIndex(max(0, model_index))
+        preset_index = self.audio_preset_combo.findData(getattr(self.config, "audio_preset", "original"))
+        self.audio_preset_combo.setCurrentIndex(max(0, preset_index))
 
     def _current_config(self) -> AppConfig:
         return AppConfig(
@@ -649,6 +718,7 @@ class MainWindow(QMainWindow):
             model_name=str(self.model_combo.currentData()),
             speaker_enabled=self.speaker_check.isChecked(),
             speaker_threshold=self.speaker_threshold.value() / 100,
+            audio_preset=str(self.audio_preset_combo.currentData()),
         )
 
     def _change_theme(self) -> None:
@@ -742,7 +812,7 @@ class MainWindow(QMainWindow):
         self.drop_zone.setEnabled(not running)
         for widget in (
             self.model_combo, self.language_combo, self.beam_spin, self.vad_check, self.mode_combo,
-            self.speaker_check, self.speaker_threshold,
+            self.speaker_check, self.speaker_threshold, self.audio_preset_combo,
             self.output_edit, self.update_button, self.file_list, self.add_file_button,
             self.remove_file_button, self.clear_files_button, self.move_up_button, self.move_down_button,
         ):
@@ -801,7 +871,8 @@ class MainWindow(QMainWindow):
             self.source_paths, self.config.language, self.config.beam_size, self.config.vad_filter,
             self.config.batch_mode, self.config.model_name,
             speaker_enabled=self.config.speaker_enabled,
-            speaker_threshold=self.config.speaker_threshold, parent=self,
+            speaker_threshold=self.config.speaker_threshold,
+            audio_preset=self.config.audio_preset, parent=self,
         )
         self.worker.progress_changed.connect(self._on_progress)
         self.worker.segment_ready.connect(self._on_segment)

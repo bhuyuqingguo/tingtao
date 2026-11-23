@@ -4,20 +4,22 @@ from datetime import datetime
 from pathlib import Path
 
 from PySide6.QtCore import QUrl, Qt, Signal
-from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
+from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer, QSoundEffect
 from PySide6.QtWidgets import (
     QFileDialog, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget,
-    QListWidgetItem, QMessageBox, QProgressBar, QPushButton, QVBoxLayout, QWidget,
+    QListWidgetItem, QMessageBox, QPushButton, QVBoxLayout, QWidget,
 )
 
 from .audio_library import AudioLibrary, InvalidVaultPasswordError, VaultLockedError
-from .paths import DATA_ROOT
+from .paths import APP_ROOT, DATA_ROOT
 from .recorder import AudioRecorder
+from .recording_widgets import LevelMeter, WaveformWidget
 
 
 class AudioLibraryPanel(QWidget):
     transcribe_requested = Signal(list)
     status_changed = Signal(str)
+    recording_changed = Signal(bool)
 
     def __init__(self, library: AudioLibrary | None = None, parent=None):
         super().__init__(parent)
@@ -31,9 +33,13 @@ class AudioLibraryPanel(QWidget):
         self.audio_output = QAudioOutput(self)
         self.player.setAudioOutput(self.audio_output)
         self.audio_output.setVolume(0.8)
+        self.source_chime = QSoundEffect(self)
+        self.source_chime.setSource(QUrl.fromLocalFile(str(APP_ROOT / "assets" / "source-chime.wav")))
+        self.source_chime.setVolume(0.55)
         self._busy = False
         self._build()
-        self.recorder.level_changed.connect(self.level.setValue)
+        self.recorder.level_changed.connect(self.level.set_level)
+        self.recorder.waveform_changed.connect(self.waveform.set_values)
         self.refresh_devices()
         self.refresh()
 
@@ -54,22 +60,36 @@ class AudioLibraryPanel(QWidget):
         source_row = QHBoxLayout()
         source_row.addWidget(QLabel("输入音源"))
         self.device_combo = self._combo()
+        self.device_combo.setMaximumWidth(460)
+        self.device_combo.activated.connect(self._device_selected)
         source_row.addWidget(self.device_combo, 1)
-        self.refresh_devices_button = self._button("刷新音源", self.refresh_devices, "smallButton")
+        self.test_source_button = self._button("提示音", self._test_source, "smallButton")
+        source_row.addWidget(self.test_source_button)
+        self.refresh_devices_button = self._button("刷新", self.refresh_devices, "smallButton")
         source_row.addWidget(self.refresh_devices_button)
         self.record_button = self._button("● 开始录音", self._toggle_recording, "primaryButton")
         source_row.addWidget(self.record_button)
         record_layout.addLayout(source_row)
         meter_row = QHBoxLayout()
-        self.record_status = QLabel("录音将以 WAV 保存到本地音频库")
-        self.record_status.setObjectName("muted")
-        self.level = QProgressBar()
-        self.level.setRange(0, 100)
-        self.level.setTextVisible(False)
-        self.level.setMaximumHeight(8)
-        meter_row.addWidget(self.record_status, 1)
+        self.waveform = WaveformWidget()
+        self.level = LevelMeter()
+        meter_row.addWidget(self.waveform, 1)
         meter_row.addWidget(self.level, 1)
         record_layout.addLayout(meter_row)
+        controls_row = QHBoxLayout()
+        self.record_status = QLabel("实时监听电平，不将麦克风回放到扬声器")
+        self.record_status.setObjectName("muted")
+        controls_row.addWidget(self.record_status, 1)
+        controls_row.addWidget(QLabel("录音限幅"))
+        self.limiter_combo = self._combo()
+        self.limiter_combo.addItem("关闭", "off")
+        self.limiter_combo.addItem("温和 · -3 dB", "gentle")
+        self.limiter_combo.addItem("标准 · -1 dB", "standard")
+        self.limiter_combo.setCurrentIndex(2)
+        self.limiter_combo.setToolTip("仅限制写入 WAV 的数字峰值；无法修复麦克风或声卡已经发生的削波")
+        self.limiter_combo.currentIndexChanged.connect(lambda: self.recorder.set_limiter(str(self.limiter_combo.currentData())))
+        controls_row.addWidget(self.limiter_combo)
+        record_layout.addLayout(controls_row)
         root.addWidget(record_card)
 
         security_row = QHBoxLayout()
@@ -147,6 +167,23 @@ class AudioLibraryPanel(QWidget):
         self.device_combo.setCurrentIndex(max(0, index))
         if not self.device_combo.count():
             self.device_combo.addItem("未检测到输入设备", None)
+        else:
+            self._start_preview()
+
+    def _start_preview(self) -> None:
+        try:
+            self.recorder.preview(self.device_combo.currentData())
+            self.record_status.setText("音源已连接 · 对着麦克风说话可查看实时波形")
+        except (OSError, RuntimeError) as exc:
+            self.record_status.setText(f"音源暂不可用：{exc}")
+
+    def _device_selected(self) -> None:
+        self._start_preview()
+        self.source_chime.play()
+
+    def _test_source(self) -> None:
+        self.source_chime.play()
+        self.record_status.setText("已播放音源提示音 · 电平来自当前麦克风，不会回放麦克风")
 
     def _toggle_recording(self) -> None:
         if self.recorder.recording:
@@ -162,8 +199,13 @@ class AudioLibraryPanel(QWidget):
         self.record_button.setText("■ 停止并保存" if recording else "● 开始录音")
         self.device_combo.setEnabled(not recording and not self._busy)
         self.refresh_devices_button.setEnabled(not recording and not self._busy)
+        self.test_source_button.setEnabled(not recording and not self._busy)
+        self.limiter_combo.setEnabled(not recording and not self._busy)
+        self.recording_changed.emit(recording)
         if not recording:
-            self.level.setValue(0)
+            self.level.set_level(0)
+            self.waveform.clear()
+            self._start_preview()
 
     def _elapsed(self, seconds: float) -> None:
         minutes, seconds = divmod(int(seconds), 60)
@@ -395,6 +437,6 @@ class AudioLibraryPanel(QWidget):
 
     def shutdown(self) -> None:
         self.player.stop()
-        if self.recorder.recording:
-            self.recorder.cancel()
+        self.source_chime.stop()
+        self.recorder.cancel()
         self.library.lock()

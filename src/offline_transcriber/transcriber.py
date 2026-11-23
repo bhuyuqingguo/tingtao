@@ -24,6 +24,7 @@ from typing import Callable
 import numpy as np
 from faster_whisper import WhisperModel
 
+from .audio_processing import AUDIO_PRESETS, audio_filter
 from .formatters import result_text
 from .model_catalog import MODEL_SPECS, model_directory, model_is_complete, normalize_model_name
 from .paths import FFMPEG_ROOT, TEMP_ROOT, ensure_data_directories
@@ -150,18 +151,21 @@ class OfflineTranscriber:
         except (ValueError, TypeError):
             return 0.0
 
-    def _decode(self, source: Path, log: LogCallback) -> tuple[np.ndarray, float]:
+    def _decode(self, source: Path, log: LogCallback, audio_preset: str = "original") -> tuple[np.ndarray, float]:
         ffmpeg = FFMPEG_ROOT / self._executable("ffmpeg")
         if not ffmpeg.is_file():
             raise FileNotFoundError(f"部署包缺少 FFmpeg：{ffmpeg}")
         ensure_data_directories()
         temporary = TEMP_ROOT / f"decode-{uuid.uuid4().hex}.wav"
+        filters = audio_filter(audio_preset)
         command = [
             str(ffmpeg), "-nostdin", "-hide_banner", "-loglevel", "error",
             "-i", str(source), "-map", "0:a:0", "-vn", "-ac", "1", "-ar", "16000",
-            "-c:a", "pcm_s16le", "-f", "wav", "-y", str(temporary),
         ]
-        log("正在本地解码音频……")
+        if filters:
+            command.extend(["-af", filters])
+        command.extend(["-c:a", "pcm_s16le", "-f", "wav", "-y", str(temporary)])
+        log(f"正在本地解码音频 · {AUDIO_PRESETS[audio_preset]['title']}")
         process = subprocess.Popen(
             command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
             creationflags=self._creation_flags(),
@@ -192,6 +196,7 @@ class OfflineTranscriber:
         language: str = "zh",
         beam_size: int = 5,
         vad_filter: bool = True,
+        audio_preset: str = "original",
         progress: ProgressCallback | None = None,
         on_segment: SegmentCallback | None = None,
         log: LogCallback | None = None,
@@ -205,7 +210,7 @@ class OfflineTranscriber:
         self._check_cancelled()
         model = self._load_model(log)
         duration = self._probe_duration(source_path)
-        audio, decoded_duration = self._decode(source_path, log)
+        audio, decoded_duration = self._decode(source_path, log, audio_preset)
         duration = duration or decoded_duration
         if duration <= 0 or audio.size == 0:
             raise RuntimeError("音频为空或文件中没有可用音轨")
