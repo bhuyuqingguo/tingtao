@@ -43,10 +43,10 @@ def files_by_relative(root: Path) -> dict[str, Path]:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Create a two-item TingTao in-app incremental update package")
-    parser.add_argument("--old", type=Path, default=ROOT / "build-cache" / "self-update-acceptance-1.6.2" / "TingTao")
+    parser.add_argument("--old", type=Path, default=ROOT / "build-cache" / "self-update-acceptance-1.6.3" / "TingTao")
     parser.add_argument("--new", type=Path, default=ROOT / "dist" / "Windows-x64" / "TingTao")
     parser.add_argument("--platform", choices=("windows", "kylin"), default="windows")
-    parser.add_argument("--work", type=Path, default=ROOT / "build-cache" / "update-package-1.6.3")
+    parser.add_argument("--work", type=Path, default=ROOT / "build-cache" / "update-package-1.6.4")
     parser.add_argument("--archive", type=Path)
     return parser.parse_args()
 
@@ -89,7 +89,7 @@ def main() -> None:
         "created_at": datetime.now().astimezone().isoformat(), "files": changed, "deletes": deletes,
         "total_payload_bytes": sum(item["size"] for item in changed),
         "protected_paths": ["data", "models/faster-whisper-small", "models/faster-whisper-medium", "config.json"],
-        "release_notes": "录音页改为最近 60 秒右对齐滚动历史波形；新增真实写入录音的自动防爆音、自动增益与关闭／低／中／高四档流式降噪，录音过程中可切换。重排声音优化、历史波形和分色电平区域。个人配置、音频库、记录和模型受保护。",
+        "release_notes": "一、直接读取增量 ZIP：无需解压，也不用进入 TingTaoUpdate 或处理 manifest。\n二、单一文件完成升级：选择收到的 ZIP，读取、校验、确认、备份、安装和重启均在当前软件内完成。\n三、全新发行说明页：清晰展示版本变化、文件数量、载荷大小和本版改进。\n四、安全保留：版本与文件哈希严格校验，失败自动回滚；配置、音频库、记录和模型保持不变。",
     }
     args.work.mkdir(parents=True, exist_ok=True)
     update.unlink(missing_ok=True)
@@ -113,18 +113,21 @@ def main() -> None:
 ================================================
 适用版本：{from_version} → {to_version}；平台：{platform_name}
 
-使用步骤
+从 1.6.3 升级到本版（仅此一次仍用旧入口）
 1. 完整解压本 ZIP。顶层严格只有 {launcher_name} 和 TingTaoUpdate 两项。
 2. 打开现有观海·听涛，进入“模型与系统”→“导入离线增量包”。
 3. 选择 TingTaoUpdate 内的 {update.name}，点击“一键升级”。
 4. 当前程序会自行校验、备份、安装和失败回滚；Windows 自动重启一次完成被占用文件替换。
 5. 不需要、也不应使用任何独立升级工具。
 
+升级到 1.6.4 后的日常流程
+直接选择整个增量 ZIP，无需解压。软件自动读取载荷并展示发行说明，确认后一键升级并重启。
+
 新版内容
-- 最近 60 秒历史波形持续向左滚动，最新声音右对齐；-12／-6／0 dB 分色电平继续显示实时峰值。
-- 自动防爆音默认开启，自动增益默认关闭；降噪可关闭或选低／中／高，录音过程中也可调整。
-- 三项处理真实作用于写入的 WAV 和监听波形；防爆音不能修复声卡输入端已产生的削波。
-- 强降噪可能影响轻声和远场语音，重要录音建议先比较档位；升级完全嵌入当前软件。
+- 直接识别当前发布的增量 ZIP，不再要求用户寻找 .ttupdate 或处理 manifest。
+- 保留单独选择 .ttupdate 的兼容入口；无载荷、多个载荷和伪 ZIP 均会拒绝。
+- 古典风发行说明页展示版本、文件数量、净载荷和详细更新内容。
+- 读取、校验、确认、备份、安装、回滚与重启全部在当前软件内完成。
 
 安全与保留内容
 - 全程离线；安装前校验源版本、旧文件哈希、载荷大小和 SHA-256，失败自动回滚。

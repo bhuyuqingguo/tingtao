@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import shutil
+import tempfile
 import zipfile
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -12,6 +14,19 @@ PROTECTED_PREFIXES = ("data", "models")
 PROTECTED_FILES = {"config.json"}
 MEDIUM_MODEL_PREFIX = "models/faster-whisper-medium/"
 VOICEPRINT_MODEL_PREFIX = "models/wespeaker-cnceleb-resnet34-LM/"
+
+
+class _TemporaryImport:
+    """Remove an extracted inner payload after preview or staging is finished."""
+
+    def __init__(self, directory: Path):
+        self.directory = directory
+
+    def cleanup(self) -> None:
+        shutil.rmtree(self.directory, ignore_errors=True)
+
+    def __del__(self):
+        self.cleanup()
 
 
 def sha256(path: Path) -> str:
@@ -42,7 +57,29 @@ def read_update_package(package: str | Path) -> dict[str, Any]:
     package_path = Path(package)
     if not package_path.is_file():
         raise FileNotFoundError(f"找不到升级包：{package_path}")
-    with zipfile.ZipFile(package_path) as archive:
+    try:
+        archive = zipfile.ZipFile(package_path)
+    except zipfile.BadZipFile as exc:
+        raise ValueError("所选文件不是有效的观海·听涛增量 ZIP 或 .ttupdate 升级包") from exc
+    with archive:
+        names = archive.namelist()
+        if "update-manifest.json" not in names:
+            candidates = [name for name in names if name.lower().endswith(".ttupdate") and not name.endswith("/")]
+            if len(candidates) != 1:
+                raise ValueError("增量 ZIP 中必须且只能包含一个 .ttupdate 升级载荷")
+            temporary = Path(tempfile.mkdtemp(prefix="tingtao-update-import-"))
+            extracted = temporary / "pending.ttupdate"
+            try:
+                with archive.open(candidates[0]) as source, extracted.open("wb") as output:
+                    shutil.copyfileobj(source, output, length=1024 * 1024)
+                manifest = read_update_package(extracted)
+            except Exception:
+                shutil.rmtree(temporary, ignore_errors=True)
+                raise
+            manifest["distribution_path"] = str(package_path.resolve())
+            # Keep the owner alive while the caller previews or stages the update.
+            manifest["_temporary_import"] = _TemporaryImport(temporary)
+            return manifest
         try:
             manifest = json.loads(archive.read("update-manifest.json").decode("utf-8"))
         except (KeyError, UnicodeDecodeError, json.JSONDecodeError) as exc:

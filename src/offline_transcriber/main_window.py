@@ -31,6 +31,7 @@ from .record_naming import read_record_text, rename_record, suggest_name_from_te
 from .recording_widgets import LogoTally, RecordingBorder
 from .speaker import VoiceprintStore
 from .transcriber import TranscriptionResult
+from .update_dialog import UpdateConfirmationDialog
 from .update_manager import inspect_update, launch_update
 from .worker import TranscriptionWorker
 
@@ -604,8 +605,8 @@ class MainWindow(QMainWindow):
         update_title.setObjectName("cardTitle")
         update_layout.addWidget(update_title)
         update_description = QLabel(
-            f"当前版本 v{__version__}。导入本地 .ttupdate 升级包，程序会校验版本与文件哈希，自动备份旧文件，失败时回滚。\n"
-            "不联网检查更新；配置、转录记录、声纹库和已有 small／medium 模型受保护，升级包仅新增指定模型。"
+            f"当前版本 v{__version__}。直接选择收到的增量 ZIP 或 .ttupdate，无需解压，也不用处理 manifest。\n"
+            "读取后展示发行说明；确认即可校验、备份并一键升级，失败自动回滚。配置、音频库、记录和已有模型受保护。"
         )
         update_description.setObjectName("muted")
         update_description.setWordWrap(True)
@@ -1172,7 +1173,10 @@ class MainWindow(QMainWindow):
         if self.worker and self.worker.isRunning():
             QMessageBox.information(self, "任务正在运行", "请等待批量转录完成或取消任务后再升级。")
             return
-        package, _ = QFileDialog.getOpenFileName(self, "选择离线增量升级包", str(APP_ROOT), "观海听涛升级包 (*.ttupdate);;所有文件 (*)")
+        package, _ = QFileDialog.getOpenFileName(
+            self, "选择离线增量升级包", str(APP_ROOT),
+            "观海听涛增量升级包 (*.zip *.ttupdate);;增量 ZIP (*.zip);;单一升级载荷 (*.ttupdate);;所有文件 (*)",
+        )
         if not package:
             return
         try:
@@ -1180,22 +1184,8 @@ class MainWindow(QMainWindow):
         except Exception as exc:
             QMessageBox.critical(self, "升级包不可用", str(exc))
             return
-        size_mb = manifest["total_payload_bytes"] / 1024 / 1024
-        dialog = QMessageBox(self)
-        dialog.setWindowTitle("确认离线增量升级")
-        dialog.setIcon(QMessageBox.Icon.Information)
-        dialog.setText(f"{PRODUCT_NAME} v{manifest['from_version']}  →  v{manifest['to_version']}")
-        kind = manifest.get("package_kind")
-        model_note = "；本包将新增 medium 模型" if kind == "application-with-model" else ("；本包将新增中文声纹模型" if kind == "application-with-voiceprint" else "")
-        dialog.setInformativeText(
-            f"包含 {len(manifest['files'])} 个更新文件，净载荷 {size_mb:.1f} MiB。\n"
-            f"升级前会自动备份，失败会回滚；配置、声纹库、转录记录和已有识别模型保持不变{model_note}。\n\n"
-            "点击“一键升级”后，观海·听涛会自行校验、备份并安装；Windows 将自动重启当前程序完成替换，无需任何独立升级工具。"
-        )
-        dialog.setDetailedText(manifest.get("release_notes", "无升级说明"))
-        dialog.setStandardButtons(QMessageBox.StandardButton.Cancel | QMessageBox.StandardButton.Yes)
-        dialog.button(QMessageBox.StandardButton.Yes).setText("一键升级")
-        if dialog.exec() != QMessageBox.StandardButton.Yes:
+        dialog = UpdateConfirmationDialog(manifest, self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
             return
         self.update_button.setEnabled(False)
         self.status_label.setText("正在准备内嵌升级 · 主窗口关闭后将自动安装并启动新版")

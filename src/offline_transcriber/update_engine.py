@@ -37,7 +37,7 @@ def apply_update(package: str | Path, target: str | Path, log=lambda message: No
     try:
         allow_medium = manifest.get("package_kind") == "application-with-model"
         allow_voiceprint = manifest.get("package_kind") == "application-with-voiceprint"
-        with zipfile.ZipFile(package) as archive:
+        with zipfile.ZipFile(manifest["package_path"]) as archive:
             for item in manifest["files"]:
                 relative = safe_relative_path(item["path"], allow_medium, allow_voiceprint)
                 destination = target / relative

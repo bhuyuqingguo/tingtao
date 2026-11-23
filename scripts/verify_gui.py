@@ -9,10 +9,11 @@ from PySide6.QtWidgets import QApplication, QInputDialog, QLabel, QMessageBox
 
 from offline_transcriber.main_window import MainWindow
 from offline_transcriber.splash import OceanSplash
+from offline_transcriber.update_dialog import UpdateConfirmationDialog
 
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "build-cache" / "gui-1.6.3"
+OUT = ROOT / "build-cache" / "gui-1.6.4"
 OUT.mkdir(parents=True, exist_ok=True)
 app = QApplication([])
 window = MainWindow()
@@ -66,15 +67,15 @@ app.processEvents()
 assert message.grab().save(str(OUT / "message-dialog.png"))
 message.close()
 
-update_dialog = QMessageBox(window)
-update_dialog.setWindowTitle("确认离线增量升级")
-update_dialog.setText("观海·听涛 v1.6.2  →  v1.6.3")
-update_dialog.setInformativeText("程序会保存主题和配置，关闭主窗口后由内嵌运行体完成升级，并自动启动新版。")
-update_dialog.setDetailedText("不使用独立升级工具；失败时回滚。")
-update_dialog.setStandardButtons(QMessageBox.StandardButton.Cancel | QMessageBox.StandardButton.Yes)
-update_dialog.button(QMessageBox.StandardButton.Yes).setText("一键升级")
+update_dialog = UpdateConfirmationDialog({
+    "from_version": "1.6.3", "to_version": "1.6.4", "package_kind": "application",
+    "distribution_path": str(ROOT / "dist" / "TingTao-1.6.3-to-1.6.4-Windows-x64-Incremental.zip"),
+    "total_payload_bytes": 12 * 1024 * 1024, "files": [{}, {}, {}, {}],
+    "release_notes": "直接选择增量 ZIP，无需解压或处理 manifest。\n发行说明清晰展示，确认后一键升级并自动重启。\n个人配置、音频库、转录记录和模型保持不变。",
+}, window)
 update_dialog.show()
 app.processEvents()
+assert update_dialog.palette().color(update_dialog.backgroundRole()).lightness() > 200
 assert update_dialog.grab().save(str(OUT / "update-dialog.png"))
 update_dialog.close()
 

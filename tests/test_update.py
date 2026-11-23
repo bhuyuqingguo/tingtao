@@ -61,6 +61,43 @@ class UpdateTests(unittest.TestCase):
             self.assertEqual(validate_target(manifest, target), target.resolve())
             self.assertEqual(manifest["total_payload_bytes"], len(b"new-program"))
 
+    def test_distribution_zip_is_read_and_applied_without_manual_extraction(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = self.make_target(root)
+            inner = self.make_package(root, release_notes="第一项改进\n第二项改进")
+            distribution = root / "TingTao-Incremental.zip"
+            with zipfile.ZipFile(distribution, "w") as archive:
+                archive.writestr("TingTao.exe", b"launcher")
+                archive.write(inner, "TingTaoUpdate/update.ttupdate")
+                archive.writestr("TingTaoUpdate/升级说明.txt", "用户无需阅读此文件")
+            manifest = read_update_package(distribution)
+            self.assertEqual(manifest["distribution_path"], str(distribution.resolve()))
+            self.assertEqual(manifest["release_notes"], "第一项改进\n第二项改进")
+            self.assertTrue(Path(manifest["package_path"]).is_file())
+            report = apply_update(distribution, target)
+            self.assertTrue(report["success"])
+            self.assertEqual((target / "program.bin").read_bytes(), b"new-program")
+
+    def test_distribution_requires_exactly_one_payload(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for names in ((), ("a.ttupdate", "b.ttupdate")):
+                with self.subTest(names=names):
+                    distribution = root / f"invalid-{len(names)}.zip"
+                    with zipfile.ZipFile(distribution, "w") as archive:
+                        for name in names:
+                            archive.writestr(name, b"not-a-real-payload")
+                    with self.assertRaisesRegex(ValueError, "必须且只能包含一个"):
+                        read_update_package(distribution)
+
+    def test_invalid_update_file_has_clear_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            package = Path(directory) / "not-an-update.zip"
+            package.write_bytes(b"not a zip")
+            with self.assertRaisesRegex(ValueError, "不是有效的观海·听涛"):
+                read_update_package(package)
+
     def test_invalid_and_protected_paths(self):
         for path in ("../outside", "/absolute", "C:/outside", "data/output/a.txt", "MODELS/model.bin", "CONFIG.JSON", "a\\b"):
             with self.subTest(path=path), self.assertRaises(ValueError):

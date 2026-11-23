@@ -12,8 +12,8 @@ ROOT = Path(__file__).resolve().parents[1]
 DIST_ROOT = ROOT / "dist" / "Windows-x64"
 DIST = DIST_ROOT / "TingTao"
 LAUNCHER = DIST_ROOT / "TingTao.exe"
-INCREMENTAL = ROOT / "dist" / "TingTao-1.6.2-to-1.6.3-Windows-x64-Incremental.zip"
-RELEASE_MANIFEST = ROOT / "dist" / "TingTao-1.6.3-release-manifest.json"
+INCREMENTAL = ROOT / "dist" / "TingTao-1.6.3-to-1.6.4-Windows-x64-Incremental.zip"
+RELEASE_MANIFEST = ROOT / "dist" / "TingTao-1.6.4-release-manifest.json"
 
 
 def sha256(path: Path) -> str:
@@ -69,7 +69,7 @@ def main() -> None:
         raise RuntimeError(f"Final package integrity check failed: {powershell.stdout}\n{powershell.stderr}")
 
     if not INCREMENTAL.is_file():
-        raise RuntimeError("Tested 1.6.2-to-1.6.3 incremental package is missing")
+        raise RuntimeError("Tested 1.6.3-to-1.6.4 incremental package is missing")
     incremental_top = archive_top_level(INCREMENTAL)
     if incremental_top != {"TingTao.exe", "TingTaoUpdate"}:
         raise RuntimeError(f"Incremental package top-level rule failed: {incremental_top}")
@@ -83,10 +83,10 @@ def main() -> None:
         "created_at": datetime.now(timezone.utc).astimezone().isoformat(),
         "product": "TingTao",
         "product_name_zh": "观海·听涛",
-        "version": "1.6.3",
+        "version": "1.6.4",
         "full_package": None,
         "incremental_package": incremental_info,
-        "incremental_status": "Only the tested 1.6.2-to-1.6.3 incremental package is published. It passed copied-runtime self-update, restart and data preservation tests.",
+        "incremental_status": "Only the tested 1.6.3-to-1.6.4 incremental package is published. It passed copied-runtime self-update, restart and data preservation tests.",
         "real_copied_runtime_self_update_test": True,
         "embedded_models": [
             {
