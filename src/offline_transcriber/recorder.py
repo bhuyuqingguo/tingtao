@@ -7,16 +7,16 @@ import numpy as np
 from PySide6.QtCore import QElapsedTimer, QObject, QTimer, Signal
 from PySide6.QtMultimedia import QAudio, QAudioFormat, QAudioSource, QMediaDevices
 
+from .stream_audio import DENOISE_LEVELS, StreamingAudioProcessor
+
 
 class AudioRecorder(QObject):
     elapsed_changed = Signal(float)
     level_changed = Signal(float)
-    waveform_changed = Signal(list)
+    waveform_changed = Signal(float)
     state_changed = Signal(bool)
     finished = Signal(str)
     failed = Signal(str)
-
-    LIMIT_CEILINGS = {"off": None, "gentle": 10 ** (-3 / 20), "standard": 10 ** (-1 / 20)}
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -27,7 +27,10 @@ class AudioRecorder(QObject):
         self.timer = QElapsedTimer()
         self._stopping = False
         self._active_recording = False
-        self.limiter = "standard"
+        self.limiter_enabled = True
+        self.automatic_gain = False
+        self.denoise = "off"
+        self.processor = StreamingAudioProcessor()
         self.poll = QTimer(self)
         self.poll.setInterval(50)
         self.poll.timeout.connect(self._poll)
@@ -67,7 +70,7 @@ class AudioRecorder(QObject):
         self.poll.start()
 
     def preview(self, device) -> None:
-        """Monitor input level without playing microphone audio to speakers."""
+        """Monitor processed input without playing microphone audio to speakers."""
         if self.recording:
             return
         self._open_source(device)
@@ -76,10 +79,16 @@ class AudioRecorder(QObject):
         if not self.recording:
             self._cleanup()
 
-    def set_limiter(self, preset: str) -> None:
-        if preset not in self.LIMIT_CEILINGS:
-            raise ValueError("未知限幅档位")
-        self.limiter = preset
+    def set_limiter(self, enabled: bool) -> None:
+        self.limiter_enabled = bool(enabled)
+
+    def set_automatic_gain(self, enabled: bool) -> None:
+        self.automatic_gain = bool(enabled)
+
+    def set_denoise(self, level: str) -> None:
+        if level not in DENOISE_LEVELS:
+            raise ValueError("未知降噪档位")
+        self.denoise = level
 
     def start(self, device, target: str | Path) -> None:
         if self.recording:
@@ -87,8 +96,6 @@ class AudioRecorder(QObject):
         self.target = Path(target)
         self.target.parent.mkdir(parents=True, exist_ok=True)
         try:
-            # Starting from monitor mode must close the preview before the WAV
-            # is opened; cleanup intentionally closes any previous stream/WAV.
             self._open_source(device)
             self.wav = wave.open(str(self.target), "wb")
             self.wav.setnchannels(1)
@@ -110,10 +117,7 @@ class AudioRecorder(QObject):
         edges = np.linspace(0, samples.size, points + 1, dtype=int)
         values = []
         for start, end in zip(edges[:-1], edges[1:]):
-            if end <= start:
-                values.append(0.0)
-            else:
-                values.append(float(np.max(np.abs(samples[start:end]))) / 32768.0)
+            values.append(0.0 if end <= start else float(np.max(np.abs(samples[start:end]))) / 32768.0)
         return values
 
     def _write_available(self) -> None:
@@ -123,18 +127,15 @@ class AudioRecorder(QObject):
         if not raw:
             return
         samples = np.frombuffer(raw, dtype="<i2").copy()
-        if self.wav:
-            ceiling = self.LIMIT_CEILINGS[self.limiter]
-            if ceiling is not None and samples.size:
-                maximum = int(np.max(np.abs(samples.astype(np.int32))))
-                limit = round(32767 * ceiling)
-                if maximum > limit:
-                    samples = np.clip(samples, -limit, limit).astype("<i2")
+        samples = self.processor.process(
+            samples, limiter=self.limiter_enabled, automatic_gain=self.automatic_gain, denoise=self.denoise,
+        )
+        if self.wav and samples.size:
             self.wav.writeframesraw(samples.tobytes())
         if samples.size:
             peak = float(np.max(np.abs(samples.astype(np.int32)))) / 32768.0
             self.level_changed.emit(min(1.0, peak))
-            self.waveform_changed.emit(self._waveform(samples))
+            self.waveform_changed.emit(peak)
 
     def _poll(self) -> None:
         if self.recording:
@@ -182,4 +183,5 @@ class AudioRecorder(QObject):
         self.stream = None
         self.wav = None
         self._active_recording = False
+        self.processor.reset()
         self.level_changed.emit(0.0)

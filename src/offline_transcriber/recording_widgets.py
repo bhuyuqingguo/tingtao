@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from collections import deque
 
 from PySide6.QtCore import QRectF, Qt, QTimer
 from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen, QPixmap, QRadialGradient
@@ -8,42 +9,60 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 
 class WaveformWidget(QWidget):
+    """A right-aligned, continuously scrolling history of the last 60 seconds."""
+
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setMinimumHeight(66)
-        self._values = [0.0] * 80
+        self.setMinimumHeight(118)
+        self._values = deque(maxlen=1200)  # 50 ms recorder updates × 60 seconds
+
+    def append_peak(self, value: float) -> None:
+        self._values.append(max(0.0, min(1.0, float(value))))
+        self.update()
 
     def set_values(self, values: list[float]) -> None:
-        self._values = [max(0.0, min(1.0, float(value))) for value in values[-80:]] or [0.0]
+        self._values.clear()
+        for value in values[-1200:]:
+            self._values.append(max(0.0, min(1.0, float(value))))
         self.update()
 
     def clear(self) -> None:
-        self.set_values([0.0] * 80)
+        self.set_values([])
 
     def paintEvent(self, event) -> None:
         del event
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.fillRect(self.rect(), QColor("#F1EBDD"))
-        center = self.height() / 2
-        painter.setPen(QPen(QColor("#D7CBB5"), 1))
-        painter.drawLine(8, int(center), self.width() - 8, int(center))
-        count = max(1, len(self._values))
-        step = (self.width() - 20) / count
+        painter.fillRect(self.rect(), QColor("#F6F0E4"))
+        left, right, top, bottom = 16.0, self.width() - 16.0, 28.0, self.height() - 24.0
+        center = (top + bottom) / 2
+        width = right - left
+        painter.setFont(self.font())
+        painter.setPen(QColor("#6F766B"))
+        painter.drawText(QRectF(left, 5, 240, 18), Qt.AlignmentFlag.AlignLeft, "近 60 秒历史波形")
+        painter.drawText(QRectF(right - 110, 5, 110, 18), Qt.AlignmentFlag.AlignRight, "最新 →")
+        painter.setPen(QPen(QColor("#DED3BF"), 1))
+        for index in range(5):
+            x = left + width * index / 4
+            painter.drawLine(int(x), int(top), int(x), int(bottom))
+            label = "现在" if index == 4 else f"−{60 - index * 15}s"
+            painter.drawText(QRectF(x - 28, bottom + 3, 56, 17), Qt.AlignmentFlag.AlignCenter, label)
+        painter.drawLine(int(left), int(center), int(right), int(center))
+        values = list(self._values)
+        columns = min(240, max(1, int(width / 3)))
+        peaks = []
+        for column in range(columns):
+            start = column * len(values) // columns
+            end = (column + 1) * len(values) // columns
+            peaks.append(max(values[start:end], default=0.0))
+        step = width / columns
         path = QPainterPath()
-        for index, value in enumerate(self._values):
-            x = 10 + index * step
-            y = center - value * (self.height() / 2 - 8)
-            if index == 0:
-                path.moveTo(x, y)
-            else:
-                path.lineTo(x, y)
-        for index in range(count - 1, -1, -1):
-            x = 10 + index * step
-            path.lineTo(x, center + self._values[index] * (self.height() / 2 - 8))
-        path.closeSubpath()
-        painter.fillPath(path, QColor(43, 111, 111, 48))
-        painter.setPen(QPen(QColor("#367C7A"), 1.6))
+        for index, value in enumerate(peaks):
+            x = right - (len(peaks) - index) * step + step / 2
+            amplitude = max(0.7, value * (bottom - top) / 2)
+            path.moveTo(x, center - amplitude)
+            path.lineTo(x, center + amplitude)
+        painter.setPen(QPen(QColor("#327C78"), 1.6, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
         painter.drawPath(path)
 
 

@@ -43,10 +43,10 @@ def files_by_relative(root: Path) -> dict[str, Path]:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Create a two-item TingTao in-app incremental update package")
-    parser.add_argument("--old", type=Path, default=ROOT / "build-cache" / "self-update-acceptance-1.6.1" / "TingTao")
+    parser.add_argument("--old", type=Path, default=ROOT / "build-cache" / "self-update-acceptance-1.6.2" / "TingTao")
     parser.add_argument("--new", type=Path, default=ROOT / "dist" / "Windows-x64" / "TingTao")
     parser.add_argument("--platform", choices=("windows", "kylin"), default="windows")
-    parser.add_argument("--work", type=Path, default=ROOT / "build-cache" / "update-package-1.6.2")
+    parser.add_argument("--work", type=Path, default=ROOT / "build-cache" / "update-package-1.6.3")
     parser.add_argument("--archive", type=Path)
     return parser.parse_args()
 
@@ -89,7 +89,7 @@ def main() -> None:
         "created_at": datetime.now().astimezone().isoformat(), "files": changed, "deletes": deletes,
         "total_payload_bytes": sum(item["size"] for item in changed),
         "protected_paths": ["data", "models/faster-whisper-small", "models/faster-whisper-medium", "config.json"],
-        "release_notes": "重新设计开场排版，修复标志与标题重叠；新增潮生、远山、听涛、星夜四套随机画面，保留本地海浪音效与点击跳过。录音时标志太阳在赭金与朱红间呼吸，标志边框在原色与朱红间切换。个人配置、音频库、记录和模型受保护。",
+        "release_notes": "录音页改为最近 60 秒右对齐滚动历史波形；新增真实写入录音的自动防爆音、自动增益与关闭／低／中／高四档流式降噪，录音过程中可切换。重排声音优化、历史波形和分色电平区域。个人配置、音频库、记录和模型受保护。",
     }
     args.work.mkdir(parents=True, exist_ok=True)
     update.unlink(missing_ok=True)
@@ -121,11 +121,10 @@ def main() -> None:
 5. 不需要、也不应使用任何独立升级工具。
 
 新版内容
-- 本地海浪音效开场，可点击跳过；二次弹窗配色与主题统一。
-- 录音实时波形、-12／-6／0 dB 分色电平、音源提示音和三档数字限幅。
-- 录音时窗口红框闪烁，窗口标题及任务栏图标出现红色提示。
-- 默认原声，可选轻度／标准降噪与响度归一化，不修改原始音频。
-- 文稿区域收窄，模型名称中文化；升级完全嵌入当前软件。
+- 最近 60 秒历史波形持续向左滚动，最新声音右对齐；-12／-6／0 dB 分色电平继续显示实时峰值。
+- 自动防爆音默认开启，自动增益默认关闭；降噪可关闭或选低／中／高，录音过程中也可调整。
+- 三项处理真实作用于写入的 WAV 和监听波形；防爆音不能修复声卡输入端已产生的削波。
+- 强降噪可能影响轻声和远场语音，重要录音建议先比较档位；升级完全嵌入当前软件。
 
 安全与保留内容
 - 全程离线；安装前校验源版本、旧文件哈希、载荷大小和 SHA-256，失败自动回滚。

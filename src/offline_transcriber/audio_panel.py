@@ -6,7 +6,7 @@ from pathlib import Path
 from PySide6.QtCore import QUrl, Qt, Signal
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer, QSoundEffect
 from PySide6.QtWidgets import (
-    QFileDialog, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget,
+    QCheckBox, QFileDialog, QFrame, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget,
     QListWidgetItem, QMessageBox, QPushButton, QVBoxLayout, QWidget,
 )
 
@@ -39,14 +39,14 @@ class AudioLibraryPanel(QWidget):
         self._busy = False
         self._build()
         self.recorder.level_changed.connect(self.level.set_level)
-        self.recorder.waveform_changed.connect(self.waveform.set_values)
+        self.recorder.waveform_changed.connect(self.waveform.append_peak)
         self.refresh_devices()
         self.refresh()
 
     def _build(self) -> None:
         root = QVBoxLayout(self)
-        root.setContentsMargins(32, 24, 32, 20)
-        root.setSpacing(12)
+        root.setContentsMargins(28, 20, 28, 18)
+        root.setSpacing(10)
         title = QLabel("听涛录音馆")
         title.setObjectName("pageTitle")
         subtitle = QLabel("选择音源、命名收存、关键词管理；录音和库内音频都可直接离线转录。")
@@ -54,9 +54,11 @@ class AudioLibraryPanel(QWidget):
         root.addWidget(title)
         root.addWidget(subtitle)
 
-        record_card = QWidget()
+        record_card = QFrame()
         record_card.setObjectName("card")
         record_layout = QVBoxLayout(record_card)
+        record_layout.setContentsMargins(16, 12, 16, 12)
+        record_layout.setSpacing(9)
         source_row = QHBoxLayout()
         source_row.addWidget(QLabel("输入音源"))
         self.device_combo = self._combo()
@@ -70,26 +72,37 @@ class AudioLibraryPanel(QWidget):
         self.record_button = self._button("● 开始录音", self._toggle_recording, "primaryButton")
         source_row.addWidget(self.record_button)
         record_layout.addLayout(source_row)
-        meter_row = QHBoxLayout()
         self.waveform = WaveformWidget()
+        record_layout.addWidget(self.waveform)
         self.level = LevelMeter()
-        meter_row.addWidget(self.waveform, 1)
-        meter_row.addWidget(self.level, 1)
-        record_layout.addLayout(meter_row)
+        self.level.setMaximumWidth(10000)
+        record_layout.addWidget(self.level)
         controls_row = QHBoxLayout()
-        self.record_status = QLabel("实时监听电平，不将麦克风回放到扬声器")
-        self.record_status.setObjectName("muted")
-        controls_row.addWidget(self.record_status, 1)
-        controls_row.addWidget(QLabel("录音限幅"))
-        self.limiter_combo = self._combo()
-        self.limiter_combo.addItem("关闭", "off")
-        self.limiter_combo.addItem("温和 · -3 dB", "gentle")
-        self.limiter_combo.addItem("标准 · -1 dB", "standard")
-        self.limiter_combo.setCurrentIndex(2)
-        self.limiter_combo.setToolTip("仅限制写入 WAV 的数字峰值；无法修复麦克风或声卡已经发生的削波")
-        self.limiter_combo.currentIndexChanged.connect(lambda: self.recorder.set_limiter(str(self.limiter_combo.currentData())))
-        controls_row.addWidget(self.limiter_combo)
+        controls_row.setSpacing(12)
+        processing_label = QLabel("声音优化")
+        processing_label.setObjectName("cardTitle")
+        controls_row.addWidget(processing_label)
+        self.limiter_check = QCheckBox("自动防爆音")
+        self.limiter_check.setChecked(True)
+        self.limiter_check.setToolTip("平滑限制突发峰值，减少数字削波；无法修复声卡输入端已经产生的失真")
+        self.limiter_check.toggled.connect(self.recorder.set_limiter)
+        controls_row.addWidget(self.limiter_check)
+        self.gain_check = QCheckBox("自动增益")
+        self.gain_check.setToolTip("缓慢提升偏弱声音并压低突增音量，避免频繁大幅起落")
+        self.gain_check.toggled.connect(self.recorder.set_automatic_gain)
+        controls_row.addWidget(self.gain_check)
+        controls_row.addWidget(QLabel("降噪"))
+        self.denoise_combo = self._combo()
+        for label, value in (("关闭", "off"), ("低", "low"), ("中", "medium"), ("高", "high")):
+            self.denoise_combo.addItem(label, value)
+        self.denoise_combo.setToolTip("低：保留更多细节；中：日常环境；高：明显底噪。强降噪可能影响轻声和远场语音")
+        self.denoise_combo.currentIndexChanged.connect(lambda: self.recorder.set_denoise(str(self.denoise_combo.currentData())))
+        controls_row.addWidget(self.denoise_combo)
+        controls_row.addStretch(1)
         record_layout.addLayout(controls_row)
+        self.record_status = QLabel("历史波形与实时电平仅用于监听，不将麦克风回放到扬声器")
+        self.record_status.setObjectName("muted")
+        record_layout.addWidget(self.record_status)
         root.addWidget(record_card)
 
         security_row = QHBoxLayout()
@@ -173,7 +186,7 @@ class AudioLibraryPanel(QWidget):
     def _start_preview(self) -> None:
         try:
             self.recorder.preview(self.device_combo.currentData())
-            self.record_status.setText("音源已连接 · 对着麦克风说话可查看实时波形")
+            self.record_status.setText("音源已连接 · 左侧回看近 60 秒，电平条显示当前音量")
         except (OSError, RuntimeError) as exc:
             self.record_status.setText(f"音源暂不可用：{exc}")
 
@@ -200,11 +213,11 @@ class AudioLibraryPanel(QWidget):
         self.device_combo.setEnabled(not recording and not self._busy)
         self.refresh_devices_button.setEnabled(not recording and not self._busy)
         self.test_source_button.setEnabled(not recording and not self._busy)
-        self.limiter_combo.setEnabled(not recording and not self._busy)
         self.recording_changed.emit(recording)
-        if not recording:
-            self.level.set_level(0)
+        if recording:
             self.waveform.clear()
+        else:
+            self.level.set_level(0)
             self._start_preview()
 
     def _elapsed(self, seconds: float) -> None:

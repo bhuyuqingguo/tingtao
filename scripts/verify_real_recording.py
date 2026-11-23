@@ -31,8 +31,19 @@ def capture() -> None:
     assert panel.recorder.recording
     assert window.windowTitle().startswith("● 录音中")
     assert window.recording_border.isVisible()
-    window.grab().save(str(ROOT / "build-cache" / "gui-1.6.2" / "real-recording.png"))
+    assert panel.limiter_check.isChecked()
+    assert panel.gain_check.isChecked()
+    assert panel.denoise_combo.currentData() == "high"
+    assert len(panel.waveform._values) > 0
+    window.grab().save(str(ROOT / "build-cache" / "gui-1.6.3" / "real-recording.png"))
     panel.recorder.stop()
+
+
+def exercise_controls() -> None:
+    panel.gain_check.setChecked(True)
+    panel.denoise_combo.setCurrentIndex(panel.denoise_combo.findData("low"))
+    QTimer.singleShot(350, lambda: panel.denoise_combo.setCurrentIndex(panel.denoise_combo.findData("medium")))
+    QTimer.singleShot(700, lambda: panel.denoise_combo.setCurrentIndex(panel.denoise_combo.findData("high")))
 
 
 def finished(filename: str) -> None:
@@ -54,6 +65,7 @@ try:
 except RuntimeError as exc:
     fail(str(exc))
 else:
+    exercise_controls()
     QTimer.singleShot(1300, capture)
     QTimer.singleShot(10000, lambda: fail("Recording smoke test timed out"))
     code = app.exec()

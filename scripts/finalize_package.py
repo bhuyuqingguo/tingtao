@@ -12,9 +12,8 @@ ROOT = Path(__file__).resolve().parents[1]
 DIST_ROOT = ROOT / "dist" / "Windows-x64"
 DIST = DIST_ROOT / "TingTao"
 LAUNCHER = DIST_ROOT / "TingTao.exe"
-ARCHIVE = ROOT / "dist" / "TingTao-1.6.2-Windows-x64-Offline.zip"
-INCREMENTAL = ROOT / "dist" / "TingTao-1.6.1-to-1.6.2-Windows-x64-Incremental.zip"
-RELEASE_MANIFEST = ROOT / "dist" / "TingTao-1.6.2-release-manifest.json"
+INCREMENTAL = ROOT / "dist" / "TingTao-1.6.2-to-1.6.3-Windows-x64-Incremental.zip"
+RELEASE_MANIFEST = ROOT / "dist" / "TingTao-1.6.3-release-manifest.json"
 
 
 def sha256(path: Path) -> str:
@@ -69,28 +68,8 @@ def main() -> None:
     if powershell.returncode != 0 or "OK:" not in powershell.stdout:
         raise RuntimeError(f"Final package integrity check failed: {powershell.stdout}\n{powershell.stderr}")
 
-    all_files = sorted(path for path in DIST.rglob("*") if path.is_file() and not excluded_data(path))
-    if ARCHIVE.exists():
-        ARCHIVE.unlink()
-    with zipfile.ZipFile(ARCHIVE, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6, allowZip64=True) as package:
-        package.write(LAUNCHER, arcname="TingTao.exe")
-        for path in all_files:
-            package.write(path, arcname=(Path("TingTao") / path.relative_to(DIST)).as_posix())
-
-    full_top = archive_top_level(ARCHIVE)
-    if full_top != {"TingTao.exe", "TingTao"}:
-        raise RuntimeError(f"Full package top-level rule failed: {full_top}")
-
-    full_info = {
-        "path": str(ARCHIVE),
-        "bytes": ARCHIVE.stat().st_size,
-        "sha256": write_hash_file(ARCHIVE),
-        "file_count": len(all_files) + 1,
-        "zip_crc_test": True,
-        "top_level_items": sorted(full_top),
-    }
     if not INCREMENTAL.is_file():
-        raise RuntimeError("Tested 1.6.1-to-1.6.2 incremental package is missing")
+        raise RuntimeError("Tested 1.6.2-to-1.6.3 incremental package is missing")
     incremental_top = archive_top_level(INCREMENTAL)
     if incremental_top != {"TingTao.exe", "TingTaoUpdate"}:
         raise RuntimeError(f"Incremental package top-level rule failed: {incremental_top}")
@@ -104,10 +83,10 @@ def main() -> None:
         "created_at": datetime.now(timezone.utc).astimezone().isoformat(),
         "product": "TingTao",
         "product_name_zh": "观海·听涛",
-        "version": "1.6.2",
-        "full_package": full_info,
+        "version": "1.6.3",
+        "full_package": None,
         "incremental_package": incremental_info,
-        "incremental_status": "The 1.6.1-to-1.6.2 package passed copied-runtime self-update, restart and data preservation tests. Versions 1.5.0/1.6.0 require a full package.",
+        "incremental_status": "Only the tested 1.6.2-to-1.6.3 incremental package is published. It passed copied-runtime self-update, restart and data preservation tests.",
         "real_copied_runtime_self_update_test": True,
         "embedded_models": [
             {
@@ -126,10 +105,7 @@ def main() -> None:
             }
             for name in ("small", "medium")
         },
-        "larger_model_planning_estimates_not_measured": {
-            "large-v3": {"model_gb": 3.09, "peak_ram_gb": [6, 10], "relative_cpu_time_vs_small": [4, 8]},
-        },
-        "kylin_status": "Build scripts only; no Kylin binary generated or tested on this Windows host",
+        "kylin_status": "No Kylin binary generated or tested in this Windows incremental release",
         "final_integrity_powershell_test": True,
     }
     RELEASE_MANIFEST.write_text(json.dumps(release, ensure_ascii=False, indent=2), encoding="utf-8")

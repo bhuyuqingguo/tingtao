@@ -12,7 +12,7 @@ from offline_transcriber.splash import OceanSplash
 
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "build-cache" / "gui-1.6.2"
+OUT = ROOT / "build-cache" / "gui-1.6.3"
 OUT.mkdir(parents=True, exist_ok=True)
 app = QApplication([])
 window = MainWindow()
@@ -27,7 +27,13 @@ assert window.audio_preset_combo.currentData() == "original"
 for index, name in ((0, "workspace.png"), (1, "recording.png"), (3, "system.png")):
     window._show_page(index)
     if index == 1:
-        window.audio_panel.waveform.set_values([abs(math.sin(i / 4)) * 0.72 for i in range(80)])
+        history = [abs(math.sin(i / 29)) * (0.18 + 0.58 * abs(math.sin(i / 173))) for i in range(1200)]
+        window.audio_panel.waveform.set_values(history)
+        assert window.audio_panel.waveform._values.maxlen == 1200
+        assert len(window.audio_panel.waveform._values) == 1200
+        assert window.audio_panel.limiter_check.isChecked()
+        assert not window.audio_panel.gain_check.isChecked()
+        assert window.audio_panel.denoise_combo.currentData() == "off"
         window.audio_panel.level.set_level(0.42)
         window._set_recording_tally(True)
         assert window.logo_tally._recording and window.logo_tally.timer.isActive()
@@ -62,7 +68,7 @@ message.close()
 
 update_dialog = QMessageBox(window)
 update_dialog.setWindowTitle("确认离线增量升级")
-update_dialog.setText("观海·听涛 v1.6.2  →  v1.6.2")
+update_dialog.setText("观海·听涛 v1.6.2  →  v1.6.3")
 update_dialog.setInformativeText("程序会保存主题和配置，关闭主窗口后由内嵌运行体完成升级，并自动启动新版。")
 update_dialog.setDetailedText("不使用独立升级工具；失败时回滚。")
 update_dialog.setStandardButtons(QMessageBox.StandardButton.Cancel | QMessageBox.StandardButton.Yes)
