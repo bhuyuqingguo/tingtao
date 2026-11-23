@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from offline_transcriber.update_common import read_update_package, safe_relative_path, validate_target
-from updater_app import apply_update, rebuild_integrity_manifest
+from offline_transcriber.update_engine import apply_update, rebuild_integrity_manifest
 
 
 def digest(data: bytes) -> str:
@@ -108,7 +108,7 @@ class UpdateTests(unittest.TestCase):
             root = Path(directory)
             target = self.make_target(root)
             before = {path.relative_to(target): path.read_bytes() for path in target.rglob("*") if path.is_file()}
-            with patch("updater_app.rebuild_integrity_manifest", side_effect=OSError("simulated write failure")):
+            with patch("offline_transcriber.update_engine.rebuild_integrity_manifest", side_effect=OSError("simulated write failure")):
                 with self.assertRaisesRegex(OSError, "simulated"):
                     apply_update(self.make_package(root), target)
             after = {

@@ -11,6 +11,8 @@
 | WeSpeaker | Apache-2.0 | https://github.com/wenet-e2e/wespeaker |
 | WeSpeaker CNCeleb ResNet34-LM 模型 | Apache-2.0 | https://huggingface.co/wespeaker/wespeaker-cnceleb-resnet34-LM |
 | ONNX Runtime | MIT | https://github.com/microsoft/onnxruntime |
+| cryptography | Apache-2.0 或 BSD-3-Clause | https://github.com/pyca/cryptography |
+| cffi | MIT | https://github.com/python-cffi/cffi |
 | PySide6／Qt for Python | LGPL-3.0-or-later；Qt 部分模块另有许可 | https://www.qt.io/licensing/ |
 | FFmpeg | 依构建配置为 LGPL 或 GPL；当前 Windows 发布使用 GPL 构建 | https://ffmpeg.org/legal.html |
 | python-docx | MIT | https://github.com/python-openxml/python-docx |

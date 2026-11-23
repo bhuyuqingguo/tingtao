@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from . import __version__
+from .audio_panel import AudioLibraryPanel
 from .batch import MERGED_MODE, QUEUE_MODE, BatchSummary
 from .config import AppConfig, ConfigStore
 from .document_export import save_document
@@ -144,6 +145,10 @@ class MainWindow(QMainWindow):
         root_layout.addWidget(self._build_sidebar())
         self.stack = QStackedWidget()
         self.stack.addWidget(self._build_workspace())
+        self.audio_panel = AudioLibraryPanel()
+        self.audio_panel.transcribe_requested.connect(self._add_library_sources)
+        self.audio_panel.status_changed.connect(self.status_label.setText)
+        self.stack.addWidget(self.audio_panel)
         self.stack.addWidget(self._build_records())
         self.stack.addWidget(self._build_system())
         root_layout.addWidget(self.stack, 1)
@@ -191,7 +196,7 @@ class MainWindow(QMainWindow):
         self.nav_group = QButtonGroup(self)
         self.nav_group.setExclusive(True)
         self.nav_buttons = []
-        for index, label in enumerate(("转录工作台", "转录记录", "模型与系统")):
+        for index, label in enumerate(("转录工作台", "录音与音频库", "转录记录", "模型与系统")):
             button = QPushButton(label)
             button.setObjectName("navButton")
             button.setCheckable(True)
@@ -669,6 +674,11 @@ class MainWindow(QMainWindow):
         if added:
             self._append_log(f"已添加 {added} 个文件，当前共 {len(self.source_paths)} 个")
 
+    def _add_library_sources(self, paths: list[str]) -> None:
+        self._add_sources(paths)
+        self._show_page(0)
+        self.status_label.setText(f"已从音频库加入 {len(paths)} 个音频 · 点击开始转录即可离线识别")
+
     def _set_source(self, path: str) -> None:
         self.source_paths.clear()
         self.file_statuses.clear()
@@ -726,6 +736,7 @@ class MainWindow(QMainWindow):
         self.logger.info(message)
 
     def _set_running(self, running: bool) -> None:
+        self.audio_panel.set_busy(running)
         self.start_button.setEnabled(not running)
         self.cancel_button.setEnabled(running)
         self.drop_zone.setEnabled(not running)
@@ -1108,17 +1119,24 @@ class MainWindow(QMainWindow):
         dialog.setInformativeText(
             f"包含 {len(manifest['files'])} 个更新文件，净载荷 {size_mb:.1f} MiB。\n"
             f"升级前会自动备份，失败会回滚；配置、声纹库、转录记录和已有识别模型保持不变{model_note}。\n\n"
-            "点击“开始升级”后，主程序将关闭，升级器会继续完成安装。"
+            "点击“一键升级”后，观海·听涛会自行校验、备份并安装；Windows 将自动重启当前程序完成替换，无需任何独立升级工具。"
         )
         dialog.setDetailedText(manifest.get("release_notes", "无升级说明"))
         dialog.setStandardButtons(QMessageBox.StandardButton.Cancel | QMessageBox.StandardButton.Yes)
-        dialog.button(QMessageBox.StandardButton.Yes).setText("开始升级")
+        dialog.button(QMessageBox.StandardButton.Yes).setText("一键升级")
         if dialog.exec() != QMessageBox.StandardButton.Yes:
             return
+        self.audio_panel.shutdown()
         try:
-            launch_update(package)
+            import sys
+            staged = launch_update(package)
+            if not getattr(sys, "frozen", False):
+                from .update_engine import apply_update
+                report = apply_update(staged, APP_ROOT)
+                QMessageBox.information(self, "升级完成", f"已升级至 v{report['to_version']}，请重新启动程序。")
+                return
         except Exception as exc:
-            QMessageBox.critical(self, "无法启动升级器", str(exc))
+            QMessageBox.critical(self, "升级未完成", f"{exc}\n已自动回滚，个人数据保持不变。")
             return
         self._update_launch_pending = True
         self.close()
@@ -1146,6 +1164,7 @@ class MainWindow(QMainWindow):
                 QMessageBox.information(self, "正在取消", "请等待当前识别片段结束后再次关闭窗口。")
                 event.ignore()
                 return
+        self.audio_panel.shutdown()
         try:
             self.config_store.save(self._current_config())
         except OSError:

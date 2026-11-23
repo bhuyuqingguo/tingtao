@@ -1,0 +1,400 @@
+from __future__ import annotations
+
+from datetime import datetime
+from pathlib import Path
+
+from PySide6.QtCore import QUrl, Qt, Signal
+from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
+from PySide6.QtWidgets import (
+    QFileDialog, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget,
+    QListWidgetItem, QMessageBox, QProgressBar, QPushButton, QVBoxLayout, QWidget,
+)
+
+from .audio_library import AudioLibrary, InvalidVaultPasswordError, VaultLockedError
+from .paths import DATA_ROOT
+from .recorder import AudioRecorder
+
+
+class AudioLibraryPanel(QWidget):
+    transcribe_requested = Signal(list)
+    status_changed = Signal(str)
+
+    def __init__(self, library: AudioLibrary | None = None, parent=None):
+        super().__init__(parent)
+        self.library = library or AudioLibrary()
+        self.recorder = AudioRecorder(self)
+        self.recorder.elapsed_changed.connect(self._elapsed)
+        self.recorder.state_changed.connect(self._recording_state)
+        self.recorder.finished.connect(self._recording_finished)
+        self.recorder.failed.connect(lambda message: QMessageBox.warning(self, "录音未完成", message))
+        self.player = QMediaPlayer(self)
+        self.audio_output = QAudioOutput(self)
+        self.player.setAudioOutput(self.audio_output)
+        self.audio_output.setVolume(0.8)
+        self._busy = False
+        self._build()
+        self.recorder.level_changed.connect(self.level.setValue)
+        self.refresh_devices()
+        self.refresh()
+
+    def _build(self) -> None:
+        root = QVBoxLayout(self)
+        root.setContentsMargins(32, 24, 32, 20)
+        root.setSpacing(12)
+        title = QLabel("听涛录音馆")
+        title.setObjectName("pageTitle")
+        subtitle = QLabel("选择音源、命名收存、关键词管理；录音和库内音频都可直接离线转录。")
+        subtitle.setObjectName("pageSubtitle")
+        root.addWidget(title)
+        root.addWidget(subtitle)
+
+        record_card = QWidget()
+        record_card.setObjectName("card")
+        record_layout = QVBoxLayout(record_card)
+        source_row = QHBoxLayout()
+        source_row.addWidget(QLabel("输入音源"))
+        self.device_combo = self._combo()
+        source_row.addWidget(self.device_combo, 1)
+        self.refresh_devices_button = self._button("刷新音源", self.refresh_devices, "smallButton")
+        source_row.addWidget(self.refresh_devices_button)
+        self.record_button = self._button("● 开始录音", self._toggle_recording, "primaryButton")
+        source_row.addWidget(self.record_button)
+        record_layout.addLayout(source_row)
+        meter_row = QHBoxLayout()
+        self.record_status = QLabel("录音将以 WAV 保存到本地音频库")
+        self.record_status.setObjectName("muted")
+        self.level = QProgressBar()
+        self.level.setRange(0, 100)
+        self.level.setTextVisible(False)
+        self.level.setMaximumHeight(8)
+        meter_row.addWidget(self.record_status, 1)
+        meter_row.addWidget(self.level, 1)
+        record_layout.addLayout(meter_row)
+        root.addWidget(record_card)
+
+        security_row = QHBoxLayout()
+        self.vault_status = QLabel()
+        self.vault_status.setObjectName("muted")
+        self.encrypt_button = self._button("", self._encryption_action, "secondaryButton")
+        self.disable_encryption_button = self._button("关闭加密", self._disable_encryption, "ghostButton")
+        security_row.addWidget(self.vault_status, 1)
+        security_row.addWidget(self.disable_encryption_button)
+        security_row.addWidget(self.encrypt_button)
+        root.addLayout(security_row)
+
+        search_row = QHBoxLayout()
+        self.search = QLineEdit()
+        self.search.setPlaceholderText("搜索音频名称、原始文件名或关键词……")
+        self.search.textChanged.connect(self._filter)
+        search_row.addWidget(self.search, 1)
+        for text, handler in (("导入音频", self._import), ("重命名", self._rename), ("音频关键词", self._edit_keywords)):
+            search_row.addWidget(self._button(text, handler, "secondaryButton"))
+        root.addLayout(search_row)
+        self.audio_list = QListWidget()
+        self.audio_list.setObjectName("recordList")
+        self.audio_list.itemSelectionChanged.connect(self._selection_changed)
+        self.audio_list.itemDoubleClicked.connect(lambda _item: self._transcribe())
+        root.addWidget(self.audio_list, 1)
+
+        actions = QHBoxLayout()
+        for text, handler, style in (
+            ("加入转录队列", self._transcribe, "primaryButton"),
+            ("播放／停止", self._play, "secondaryButton"),
+            ("导出音频", self._export, "secondaryButton"),
+            ("删除", self._delete, "secondaryButton"),
+        ):
+            actions.addWidget(self._button(text, handler, style))
+        actions.addStretch(1)
+        root.addLayout(actions)
+
+        keyword_card = QWidget()
+        keyword_card.setObjectName("card")
+        keyword_layout = QVBoxLayout(keyword_card)
+        keyword_title = QLabel("常用关键词库")
+        keyword_title.setObjectName("cardTitle")
+        keyword_layout.addWidget(keyword_title)
+        keyword_row = QHBoxLayout()
+        self.keyword_edit = QLineEdit()
+        self.keyword_edit.setPlaceholderText("输入需要长期保存的检索词，如项目名、地点、人物……")
+        self.keyword_edit.returnPressed.connect(self._add_keyword)
+        keyword_row.addWidget(self.keyword_edit, 1)
+        keyword_row.addWidget(self._button("存储关键词", self._add_keyword, "secondaryButton"))
+        keyword_row.addWidget(self._button("移除所选", self._remove_keyword, "smallButton"))
+        keyword_layout.addLayout(keyword_row)
+        self.keyword_list = QListWidget()
+        self.keyword_list.setMaximumHeight(90)
+        keyword_layout.addWidget(self.keyword_list)
+        root.addWidget(keyword_card)
+
+    @staticmethod
+    def _combo():
+        from PySide6.QtWidgets import QComboBox
+        return QComboBox()
+
+    @staticmethod
+    def _button(text, handler, style) -> QPushButton:
+        button = QPushButton(text)
+        button.setObjectName(style)
+        button.clicked.connect(handler)
+        return button
+
+    def refresh_devices(self) -> None:
+        selected = self.device_combo.currentData()
+        self.device_combo.clear()
+        for device in self.recorder.devices():
+            self.device_combo.addItem(device.description(), device)
+        index = self.device_combo.findData(selected)
+        self.device_combo.setCurrentIndex(max(0, index))
+        if not self.device_combo.count():
+            self.device_combo.addItem("未检测到输入设备", None)
+
+    def _toggle_recording(self) -> None:
+        if self.recorder.recording:
+            self.recorder.stop()
+            return
+        target = DATA_ROOT / "recordings" / f"录音_{datetime.now():%Y%m%d_%H%M%S}.wav"
+        try:
+            self.recorder.start(self.device_combo.currentData(), target)
+        except (OSError, RuntimeError) as exc:
+            QMessageBox.warning(self, "无法开始录音", str(exc))
+
+    def _recording_state(self, recording: bool) -> None:
+        self.record_button.setText("■ 停止并保存" if recording else "● 开始录音")
+        self.device_combo.setEnabled(not recording and not self._busy)
+        self.refresh_devices_button.setEnabled(not recording and not self._busy)
+        if not recording:
+            self.level.setValue(0)
+
+    def _elapsed(self, seconds: float) -> None:
+        minutes, seconds = divmod(int(seconds), 60)
+        self.record_status.setText(f"正在录音 {minutes:02d}:{seconds:02d} · 点击“停止并保存”收存")
+
+    def _recording_finished(self, filename: str) -> None:
+        default = f"会议录音 {datetime.now():%m月%d日 %H时%M分}"
+        name, accepted = QInputDialog.getText(self, "命名本次录音", "音频名称：", text=default)
+        try:
+            item = self.library.add(filename, name.strip() if accepted else default)
+            Path(filename).unlink(missing_ok=True)
+            self.record_status.setText(f"已收存：{item['name']}")
+            self.refresh()
+            self._select(item["id"])
+            if self.library.unlocked and QMessageBox.question(self, "录音已保存", "是否现在加入离线转录队列？") == QMessageBox.StandardButton.Yes:
+                self._transcribe()
+        except (OSError, ValueError, VaultLockedError) as exc:
+            QMessageBox.warning(self, "录音未收存", f"{exc}\n原始录音保留在：{filename}")
+
+    def refresh(self) -> None:
+        locked = not self.library.unlocked
+        self.vault_status.setText("🔒 音频、名称和关键词已加密 · 解锁后才能浏览和转录" if locked else ("🔓 音频库已解锁 · 离开前建议锁定" if self.library.encryption_enabled else "本地音频库 · 当前未加密"))
+        self.encrypt_button.setText("解锁音频库" if locked else ("锁定音频库" if self.library.encryption_enabled else "启用加密存储"))
+        self.disable_encryption_button.setVisible(self.library.encryption_enabled and not locked)
+        self.audio_list.clear()
+        self.keyword_list.clear()
+        if locked:
+            item = QListWidgetItem("音频库已锁定。名称、关键词和音频内容均不可见。")
+            item.setFlags(Qt.ItemFlag.NoItemFlags)
+            self.audio_list.addItem(item)
+            return
+        try:
+            for entry in self.library.items():
+                size = entry.get("bytes", 0) / 1024 / 1024
+                keywords = "、".join(entry.get("keywords", [])) or "未设关键词"
+                protection = "🔒" if entry.get("encrypted") else "○"
+                item = QListWidgetItem(f"{protection} {entry['name']}  ·  {size:.1f} MiB\n关键词：{keywords}")
+                item.setData(Qt.ItemDataRole.UserRole, entry["id"])
+                item.setToolTip(f"原始文件：{entry.get('original_name', '')}\n收存时间：{entry.get('created_at', '')}")
+                self.audio_list.addItem(item)
+            self.keyword_list.addItems(self.library.keywords())
+            self._filter()
+        except (OSError, RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, "音频库读取失败", str(exc))
+
+    def _filter(self) -> None:
+        query = self.search.text().strip().casefold()
+        for row in range(self.audio_list.count()):
+            item = self.audio_list.item(row)
+            item.setHidden(bool(query) and query not in (item.text() + item.toolTip()).casefold())
+
+    def _selected_id(self) -> str | None:
+        item = self.audio_list.currentItem()
+        value = item.data(Qt.ItemDataRole.UserRole) if item else None
+        return str(value) if value else None
+
+    def _select(self, item_id: str) -> None:
+        for row in range(self.audio_list.count()):
+            if self.audio_list.item(row).data(Qt.ItemDataRole.UserRole) == item_id:
+                self.audio_list.setCurrentRow(row)
+                return
+
+    def _selection_changed(self) -> None:
+        self.player.stop()
+
+    def _guard(self) -> bool:
+        if not self.library.unlocked:
+            QMessageBox.information(self, "音频库已锁定", "请先输入密码解锁。")
+            return False
+        if self.recorder.recording:
+            QMessageBox.information(self, "正在录音", "请先停止并保存当前录音。")
+            return False
+        return True
+
+    def _import(self) -> None:
+        if not self._guard():
+            return
+        filenames, _ = QFileDialog.getOpenFileNames(self, "导入到音频库", "", "音视频文件 (*.wav *.mp3 *.m4a *.aac *.flac *.ogg *.wma *.mp4 *.mkv *.mov *.avi *.webm);;所有文件 (*)")
+        if not filenames:
+            return
+        imported = []
+        for filename in filenames:
+            try:
+                imported.append(self.library.add(filename))
+            except (OSError, ValueError) as exc:
+                QMessageBox.warning(self, "部分音频未导入", f"{Path(filename).name}：{exc}")
+        self.refresh()
+        if imported:
+            self._select(imported[-1]["id"])
+            self.status_changed.emit(f"已导入 {len(imported)} 个音频到本地音频库")
+
+    def _rename(self) -> None:
+        item_id = self._selected_id()
+        if not item_id:
+            return
+        current = self.audio_list.currentItem().text().split("  ·  ", 1)[0].lstrip("🔒○ ")
+        name, accepted = QInputDialog.getText(self, "重命名音频", "音频名称：", text=current)
+        if accepted:
+            try:
+                self.library.rename(item_id, name)
+                self.refresh()
+                self._select(item_id)
+            except (OSError, ValueError) as exc:
+                QMessageBox.warning(self, "未重命名", str(exc))
+
+    def _edit_keywords(self) -> None:
+        item_id = self._selected_id()
+        if not item_id:
+            QMessageBox.information(self, "先选择音频", "请选择要设置关键词的音频。")
+            return
+        entry = next(item for item in self.library.items() if item["id"] == item_id)
+        value, accepted = QInputDialog.getText(self, "音频关键词", "多个关键词用逗号分隔：", text="、".join(entry.get("keywords", [])))
+        if accepted:
+            words = value.replace("，", ",").replace("、", ",").split(",")
+            self.library.set_keywords(item_id, words)
+            self.refresh()
+            self._select(item_id)
+
+    def _add_keyword(self) -> None:
+        if not self._guard():
+            return
+        try:
+            self.library.add_keyword(self.keyword_edit.text())
+            self.keyword_edit.clear()
+            self.refresh()
+        except (OSError, ValueError) as exc:
+            QMessageBox.warning(self, "关键词未保存", str(exc))
+
+    def _remove_keyword(self) -> None:
+        item = self.keyword_list.currentItem()
+        if item:
+            self.library.remove_keyword(item.text())
+            self.refresh()
+
+    def _transcribe(self) -> None:
+        if self._busy:
+            return
+        items = self.audio_list.selectedItems() or ([self.audio_list.currentItem()] if self.audio_list.currentItem() else [])
+        paths = []
+        try:
+            for item in items:
+                item_id = item.data(Qt.ItemDataRole.UserRole)
+                if item_id:
+                    paths.append(str(self.library.materialize(str(item_id))))
+        except (OSError, ValueError, RuntimeError) as exc:
+            QMessageBox.warning(self, "无法读取音频", str(exc))
+            return
+        if paths:
+            self.transcribe_requested.emit(paths)
+
+    def _play(self) -> None:
+        if self.player.playbackState() == QMediaPlayer.PlaybackState.PlayingState:
+            self.player.stop()
+            return
+        item_id = self._selected_id()
+        if item_id:
+            try:
+                self.player.setSource(QUrl.fromLocalFile(str(self.library.materialize(item_id))))
+                self.player.play()
+            except (OSError, ValueError, RuntimeError) as exc:
+                QMessageBox.warning(self, "无法播放", str(exc))
+
+    def _export(self) -> None:
+        item_id = self._selected_id()
+        if not item_id:
+            return
+        entry = next(item for item in self.library.items() if item["id"] == item_id)
+        filename, _ = QFileDialog.getSaveFileName(self, "导出解密音频副本", str(Path.home() / f"{entry['name']}{entry['extension']}"), "音频文件 (*%s)" % entry["extension"])
+        if filename:
+            self.library.export(item_id, filename)
+            self.status_changed.emit(f"已导出普通音频副本：{filename}")
+
+    def _delete(self) -> None:
+        item_id = self._selected_id()
+        if item_id and QMessageBox.question(self, "删除音频", "确定从音频库永久删除所选音频吗？此操作不影响已导出的副本。") == QMessageBox.StandardButton.Yes:
+            self.player.stop()
+            self.library.delete(item_id)
+            self.refresh()
+
+    def _encryption_action(self) -> None:
+        if self.recorder.recording:
+            QMessageBox.information(self, "正在录音", "请先停止并保存录音。")
+            return
+        if self.library.encryption_enabled and self.library.unlocked:
+            self.player.stop()
+            self.library.lock()
+            self.refresh()
+            return
+        if self.library.encryption_enabled:
+            password, accepted = QInputDialog.getText(self, "解锁音频库", "输入加密密码：", QLineEdit.EchoMode.Password)
+            if accepted:
+                try:
+                    self.library.unlock(password)
+                    self.refresh()
+                except InvalidVaultPasswordError as exc:
+                    QMessageBox.warning(self, "无法解锁", str(exc))
+            return
+        password, accepted = QInputDialog.getText(self, "启用音频库加密", "设置至少 8 个字符的密码：", QLineEdit.EchoMode.Password)
+        if not accepted:
+            return
+        confirmation, accepted = QInputDialog.getText(self, "确认加密密码", "再次输入密码：", QLineEdit.EchoMode.Password)
+        if not accepted:
+            return
+        if password != confirmation:
+            QMessageBox.warning(self, "密码不一致", "两次输入的密码不一致，请重试。")
+            return
+        try:
+            self.library.enable_encryption(password)
+            self.refresh()
+            QMessageBox.information(self, "加密已启用", "音频、名称和关键词均已加密。密码不会保存；遗忘密码将无法恢复内容。\n转录或播放时会生成会话临时副本，锁定或退出时自动清除。")
+        except (OSError, ValueError, RuntimeError) as exc:
+            QMessageBox.warning(self, "未能启用加密", str(exc))
+
+    def _disable_encryption(self) -> None:
+        password, accepted = QInputDialog.getText(self, "关闭音频库加密", "输入当前密码以解密全部库内音频：", QLineEdit.EchoMode.Password)
+        if accepted and QMessageBox.question(self, "确认关闭加密", "关闭后，音频、名称和关键词将以普通文件保存。确定继续吗？") == QMessageBox.StandardButton.Yes:
+            try:
+                self.library.disable_encryption(password)
+                self.refresh()
+            except (OSError, ValueError, RuntimeError) as exc:
+                QMessageBox.warning(self, "未关闭加密", str(exc))
+
+    def set_busy(self, busy: bool) -> None:
+        self._busy = busy
+        self.setEnabled(not busy)
+        self.device_combo.setEnabled(not busy and not self.recorder.recording)
+        self.refresh_devices_button.setEnabled(not busy and not self.recorder.recording)
+        self.record_button.setEnabled(not busy)
+
+    def shutdown(self) -> None:
+        self.player.stop()
+        if self.recorder.recording:
+            self.recorder.cancel()
+        self.library.lock()

@@ -12,9 +12,9 @@ ROOT = Path(__file__).resolve().parents[1]
 DIST_ROOT = ROOT / "dist" / "Windows-x64"
 DIST = DIST_ROOT / "TingTao"
 LAUNCHER = DIST_ROOT / "TingTao.exe"
-ARCHIVE = ROOT / "dist" / "TingTao-1.4.0-Windows-x64-Offline.zip"
-UPDATE_ARCHIVE = ROOT / "dist" / "TingTao-1.3.0-to-1.4.0-Windows-x64-Incremental.zip"
-RELEASE_MANIFEST = ROOT / "dist" / "TingTao-1.4.0-release-manifest.json"
+ARCHIVE = ROOT / "dist" / "TingTao-1.5.0-Windows-x64-Offline.zip"
+UPDATE_ARCHIVE = ROOT / "dist" / "TingTao-1.4.0-to-1.5.0-Windows-x64-Incremental.zip"
+RELEASE_MANIFEST = ROOT / "dist" / "TingTao-1.5.0-release-manifest.json"
 
 
 def sha256(path: Path) -> str:
@@ -83,7 +83,7 @@ def main() -> None:
     update_top = archive_top_level(UPDATE_ARCHIVE)
     if full_top != {"TingTao.exe", "TingTao"}:
         raise RuntimeError(f"Full package top-level rule failed: {full_top}")
-    if update_top != {"TingTaoUpdater.exe", "TingTaoUpdate"}:
+    if update_top != {"TingTao.exe", "TingTaoUpdate"}:
         raise RuntimeError(f"Incremental package top-level rule failed: {update_top}")
 
     full_info = {
@@ -106,7 +106,7 @@ def main() -> None:
         "created_at": datetime.now(timezone.utc).astimezone().isoformat(),
         "product": "TingTao",
         "product_name_zh": "观海·听涛",
-        "version": "1.4.0",
+        "version": "1.5.0",
         "full_package": full_info,
         "incremental_package": update_info,
         "embedded_models": [

@@ -10,7 +10,7 @@ from pathlib import Path
 from offline_transcriber.config import AppConfig, ConfigStore
 from offline_transcriber.model_catalog import MODEL_SPECS, model_directory, normalize_model_name
 from offline_transcriber.update_common import read_update_package
-from updater_app import apply_update
+from offline_transcriber.update_engine import apply_update
 
 
 class ModelTests(unittest.TestCase):

@@ -192,8 +192,8 @@ def assert_exports(directory: Path, stem: str) -> None:
 def main() -> None:
     if not LAUNCHER.is_file() or not (DIST / "TingTao.exe").is_file():
         raise RuntimeError("Build the two-item portable package first")
-    if not (DIST / "TingTaoUpdater.exe").is_file():
-        raise RuntimeError("The standalone offline updater is missing")
+    if (DIST / "TingTaoUpdater.exe").exists():
+        raise RuntimeError("Standalone updater must not be present; updates are embedded in the application")
     for model in ("small", "medium"):
         if not (DIST / "models" / f"faster-whisper-{model}" / "model.bin").is_file():
             raise RuntimeError(f"Embedded {model} model is missing")
@@ -289,10 +289,11 @@ def main() -> None:
         "verified_at": datetime.now(timezone.utc).astimezone().isoformat(),
         "application": "TingTao",
         "product_name_zh": "观海·听涛",
-        "version": "1.4.0",
+        "version": json.loads((DIST / "build-info.json").read_text(encoding="utf-8"))["version"],
         "top_level_items": ["TingTao.exe", "TingTao"],
         "outer_launcher_test": True,
-        "standalone_updater_present": True,
+        "standalone_updater_present": False,
+        "embedded_updater_present": True,
         "relocated_copy_test": True,
         "gui_startup_test": True,
         "offline_inference_test": True,

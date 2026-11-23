@@ -11,17 +11,17 @@ ROOT = Path(__file__).resolve().parents[1]
 DIST_ROOT = ROOT / "dist" / "Windows-x64"
 DIST = DIST_ROOT / "TingTao"
 LAUNCHER = DIST_ROOT / "TingTao.exe"
-STAGE = ROOT / "build-cache" / "stage-1.4.0"
-WORK = ROOT / "build-cache" / "pyinstaller-1.4.0"
-UPDATER_STAGE = ROOT / "build-cache" / "updater-stage-1.4.0"
-UPDATER_WORK = ROOT / "build-cache" / "updater-pyinstaller-1.4.0"
-LAUNCHER_STAGE = ROOT / "build-cache" / "launcher-stage-1.4.0"
-LAUNCHER_WORK = ROOT / "build-cache" / "launcher-pyinstaller-1.4.0"
+STAGE = ROOT / "build-cache" / "stage-1.5.0"
+WORK = ROOT / "build-cache" / "pyinstaller-1.5.0"
+UPDATER_STAGE = ROOT / "build-cache" / "updater-stage-1.5.0"
+UPDATER_WORK = ROOT / "build-cache" / "updater-pyinstaller-1.5.0"
+LAUNCHER_STAGE = ROOT / "build-cache" / "launcher-stage-1.5.0"
+LAUNCHER_WORK = ROOT / "build-cache" / "launcher-pyinstaller-1.5.0"
 PYTHON = ROOT / ".venv" / "Scripts" / "python.exe"
 PYINSTALLER = ROOT / ".venv" / "Scripts" / "pyinstaller.exe"
-VERSION = "1.4.0"
+VERSION = "1.5.0"
 
-USAGE = """观海·听涛 1.4.0 · 完全离线语音转录
+USAGE = """观海·听涛 1.5.0 · 完全离线语音转录
 ====================================
 观海听涛，声落成章。
 
@@ -37,6 +37,12 @@ USAGE = """观海·听涛 1.4.0 · 完全离线语音转录
 3. 可导出 TXT、Markdown、DOCX（Word／WPS 兼容）、SRT、VTT、JSON；当前页签为纪要时导出纪要。
 4. “一键形成纪要”在本地整理重点、决定事项和待办，不调用在线大模型，须结合原文复核。
 5. 转录记录支持手动重命名和“根据内容命名”，不会自动批量改动旧记录。
+
+录音、音频库与加密
+1. “录音与音频库”页可选择系统输入音源，录制 16 kHz 单声道 WAV，命名收存后立即加入离线转录。
+2. 支持导入、重命名、关键词库、搜索、播放、导出、删除和批量加入转录。
+3. 可选 AES-256-GCM 加密，音频内容、名称和关键词均加密；密码至少 8 字符且不会保存，遗忘无法恢复。
+4. 播放或转录加密音频时生成会话临时副本，锁定或退出自动清除。导出的普通音频和文稿不自动加密。
 
 声纹识别
 1. 勾选“识别讲话人并匹配声纹库”后按转录片段分离，导出文稿显示讲话人。
@@ -60,9 +66,9 @@ Ctrl+O 添加文件；Ctrl+Enter 开始；Ctrl+S 另存 TXT。
 离线增量升级
 - “模型与系统”页导入 .ttupdate；仍兼容读取旧 .tlupdate 清单格式。
 - 升级前校验版本与旧文件哈希，自动备份，失败回滚。
-- config.json、data、small 和 medium 不受修改；1.4.0 增量包仅额外安装中文声纹模型。
-- 从观海·听涛 1.3.0 升级：解压增量 ZIP，运行外层 TingTaoUpdater.exe，选择更新文件夹中的
-  .ttupdate 和旧 TingTao 资源目录（含 build-info.json）。更早版本请逐级升级。
+- config.json、data、small 和 medium 不受修改；音频库、声纹库、录音和转录记录均受保护。
+- 从观海·听涛 1.4.0 升级：在当前软件“模型与系统”页选择解压后的 .ttupdate，点击“一键升级”。
+  当前程序自行校验、备份、安装与失败回滚；Windows 自动重启一次，不使用独立升级工具。
 
 完整性与自检
 在资源文件夹运行：powershell -ExecutionPolicy Bypass -File verify_package.ps1
@@ -117,16 +123,11 @@ def run_builds() -> None:
         "--onedir", "--windowed", "--name", "TingTao", "--icon", str(ROOT / "assets" / "app.ico"),
         "--collect-all", "faster_whisper", "--collect-all", "ctranslate2", "--collect-all", "av",
         "--collect-all", "docx", "--collect-all", "lxml", "--collect-all", "onnxruntime",
+        "--collect-all", "cryptography",
         "--hidden-import", "offline_transcriber.main_window", str(ROOT / "src" / "run_app.py"),
     ]
     subprocess.run(command, cwd=ROOT, check=True)
     shutil.move(str(STAGE / "TingTao"), str(DIST))
-    updater = pyinstaller_base(UPDATER_WORK, UPDATER_STAGE) + [
-        "--onefile", "--windowed", "--name", "TingTaoUpdater", "--icon", str(ROOT / "assets" / "app.ico"),
-        "--hidden-import", "offline_transcriber.update_common", str(ROOT / "src" / "updater_app.py"),
-    ]
-    subprocess.run(updater, cwd=ROOT, check=True)
-    shutil.copy2(UPDATER_STAGE / "TingTaoUpdater.exe", DIST / "TingTaoUpdater.exe")
     launcher = pyinstaller_base(LAUNCHER_WORK, LAUNCHER_STAGE) + [
         "--onefile", "--windowed", "--name", "TingTaoLauncher", "--icon", str(ROOT / "assets" / "app.ico"),
         str(ROOT / "src" / "launcher.py"),
@@ -162,7 +163,7 @@ def copy_licenses() -> None:
     license_dir.mkdir(exist_ok=True)
     package_names = [
         "faster-whisper", "ctranslate2", "av", "tokenizers", "numpy", "PySide6",
-        "huggingface-hub", "onnxruntime", "tqdm", "urllib3", "certifi", "python-docx", "lxml",
+        "huggingface-hub", "onnxruntime", "tqdm", "urllib3", "certifi", "python-docx", "lxml", "cryptography", "cffi",
     ]
     notices = [
         "观海·听涛\n第三方组件清单\n",
@@ -221,7 +222,7 @@ def write_build_info() -> None:
         "update_format": "tinglan-offline-update-v1",
         "application_and_model_updates_separated": False,
         "application_update_excludes": ["data", "models/faster-whisper-small", "models/faster-whisper-medium", "config.json"],
-        "model_update_policy": "1.4.0 adds only models/wespeaker-cnceleb-resnet34-LM; existing ASR models and user data are protected",
+        "model_update_policy": "1.5.0 adds only models/wespeaker-cnceleb-resnet34-LM; existing ASR models and user data are protected",
         "larger_model_estimates_not_benchmarked": {
             "large-v3": {"model_gb": 3.09, "peak_ram_gb": [6, 10], "relative_cpu_time": [4, 8]},
         },

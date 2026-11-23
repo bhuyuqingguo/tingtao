@@ -76,8 +76,17 @@ def main() -> int:
     parser.add_argument("--model", choices=("small", "medium"), default="small", help="选择本地识别模型，默认 small")
     parser.add_argument("--speaker", action="store_true", help="启用离线说话人分离与声纹库匹配")
     parser.add_argument("--output", help="测试结果 JSON 路径")
+    parser.add_argument("--apply-update", metavar="PACKAGE", help=argparse.SUPPRESS)
+    parser.add_argument("--update-target", help=argparse.SUPPRESS)
+    parser.add_argument("--parent-pid", type=int, default=0, help=argparse.SUPPRESS)
+    parser.add_argument("--restart", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--version", action="store_true")
     args, _unknown = parser.parse_known_args()
+    if args.apply_update:
+        if not args.update_target:
+            parser.error("--apply-update requires --update-target")
+        from .update_manager import run_embedded_update
+        return run_embedded_update(args.apply_update, args.update_target, args.parent_pid, args.restart)
     if args.version:
         from . import __version__
         print(__version__)

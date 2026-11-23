@@ -15,16 +15,16 @@ ROOT = Path(__file__).resolve().parents[1]
 DIST_ROOT = ROOT / "dist" / "Kylin-x86_64"
 DIST = DIST_ROOT / "TingTaoData"
 LAUNCHER = DIST_ROOT / "TingTao"
-STAGE = ROOT / "build-cache" / "kylin-stage-1.4.0"
-WORK = ROOT / "build-cache" / "kylin-pyinstaller-1.4.0"
-UPDATER_STAGE = ROOT / "build-cache" / "kylin-updater-stage-1.4.0"
-UPDATER_WORK = ROOT / "build-cache" / "kylin-updater-pyinstaller-1.4.0"
-LAUNCHER_STAGE = ROOT / "build-cache" / "kylin-launcher-stage-1.4.0"
-LAUNCHER_WORK = ROOT / "build-cache" / "kylin-launcher-pyinstaller-1.4.0"
-ARCHIVE = ROOT / "dist" / "TingTao-1.4.0-Kylin-x86_64-Offline.zip"
-VERSION = "1.4.0"
+STAGE = ROOT / "build-cache" / "kylin-stage-1.5.0"
+WORK = ROOT / "build-cache" / "kylin-pyinstaller-1.5.0"
+UPDATER_STAGE = ROOT / "build-cache" / "kylin-updater-stage-1.5.0"
+UPDATER_WORK = ROOT / "build-cache" / "kylin-updater-pyinstaller-1.5.0"
+LAUNCHER_STAGE = ROOT / "build-cache" / "kylin-launcher-stage-1.5.0"
+LAUNCHER_WORK = ROOT / "build-cache" / "kylin-launcher-pyinstaller-1.5.0"
+ARCHIVE = ROOT / "dist" / "TingTao-1.5.0-Kylin-x86_64-Offline.zip"
+VERSION = "1.5.0"
 
-USAGE = """观海·听涛 1.4.0 · 银河麒麟 V10 x86_64 完全离线语音转录
+USAGE = """观海·听涛 1.5.0 · 银河麒麟 V10 x86_64 完全离线语音转录
 ======================================================
 观海听涛，声落成章。
 
@@ -49,8 +49,9 @@ large-v3 未内置；实际资源取决于 CPU、音频长度、搜索宽度和�
 
 离线增量升级
 “模型与系统”页导入 .ttupdate；仍兼容旧 .tlupdate 清单格式。升级前流式校验版本与文件哈希，
-自动备份，失败回滚。config.json、data 和已有 small 模型受保护；1.4.0 增量包仅新增中文声纹模型。
-麒麟增量 ZIP 的顶层同样严格只有 TingTaoUpdater 和 TingTaoUpdate 两项。
+自动备份，失败回滚。config.json、data、音频库、声纹和已有 small／medium 模型受保护。
+全部升级在当前软件内一键完成，不使用独立升级工具。
+麒麟增量 ZIP 的顶层同样严格只有 TingTao 和 TingTaoUpdate 两项。
 
 完整性与自检
 在资源文件夹运行：bash verify_package.sh
@@ -100,22 +101,17 @@ def run_builds() -> None:
         "--onedir", "--windowed", "--name", "TingTao",
         "--collect-all", "faster_whisper", "--collect-all", "ctranslate2", "--collect-all", "av",
         "--collect-all", "docx", "--collect-all", "lxml", "--collect-all", "onnxruntime",
+        "--collect-all", "cryptography",
         "--hidden-import", "offline_transcriber.main_window", str(ROOT / "src" / "run_app.py"),
     ]
     subprocess.run(command, cwd=ROOT, check=True)
     shutil.move(str(STAGE / "TingTao"), str(DIST))
-    updater = pyinstaller_base(UPDATER_WORK, UPDATER_STAGE) + [
-        "--onefile", "--console", "--name", "TingTaoUpdater",
-        "--hidden-import", "offline_transcriber.update_common", str(ROOT / "src" / "updater_app.py"),
-    ]
-    subprocess.run(updater, cwd=ROOT, check=True)
-    shutil.copy2(UPDATER_STAGE / "TingTaoUpdater", DIST / "TingTaoUpdater")
     launcher = pyinstaller_base(LAUNCHER_WORK, LAUNCHER_STAGE) + [
         "--onefile", "--console", "--name", "TingTaoLauncher", str(ROOT / "src" / "launcher.py"),
     ]
     subprocess.run(launcher, cwd=ROOT, check=True)
     shutil.copy2(LAUNCHER_STAGE / "TingTaoLauncher", LAUNCHER)
-    for executable in (LAUNCHER, DIST / "TingTao", DIST / "TingTaoUpdater"):
+    for executable in (LAUNCHER, DIST / "TingTao"):
         if not executable.is_file():
             raise RuntimeError(f"Expected executable was not created: {executable}")
         executable.chmod(0o755)
@@ -160,7 +156,7 @@ def copy_licenses() -> None:
     license_dir.mkdir(exist_ok=True)
     package_names = [
         "faster-whisper", "ctranslate2", "av", "tokenizers", "numpy", "PySide6",
-        "huggingface-hub", "onnxruntime", "tqdm", "urllib3", "certifi", "python-docx", "lxml",
+        "huggingface-hub", "onnxruntime", "tqdm", "urllib3", "certifi", "python-docx", "lxml", "cryptography", "cffi",
     ]
     notices = [
         "观海·听涛\n第三方组件清单\n",
@@ -214,7 +210,7 @@ def write_build_info() -> None:
         "update_format": "tinglan-offline-update-v1",
         "application_and_model_updates_separated": False,
         "application_update_excludes": ["data", "models/faster-whisper-small", "models/faster-whisper-medium", "config.json"],
-        "model_update_policy": "1.4.0 adds only models/wespeaker-cnceleb-resnet34-LM; existing ASR models and user data are protected",
+        "model_update_policy": "1.5.0 adds only models/wespeaker-cnceleb-resnet34-LM; existing ASR models and user data are protected",
         "larger_model_estimates_not_benchmarked": {
             "large-v3": {"model_gb": 3.09, "peak_ram_gb": [6, 10], "relative_cpu_time": [4, 8]},
         },
