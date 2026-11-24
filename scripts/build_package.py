@@ -11,17 +11,17 @@ ROOT = Path(__file__).resolve().parents[1]
 DIST_ROOT = ROOT / "dist" / "Windows-x64"
 DIST = DIST_ROOT / "TingTao"
 LAUNCHER = DIST_ROOT / "TingTao.exe"
-STAGE = ROOT / "build-cache" / "stage-1.6.5"
-WORK = ROOT / "build-cache" / "pyinstaller-1.6.5"
-UPDATER_STAGE = ROOT / "build-cache" / "updater-stage-1.6.5"
-UPDATER_WORK = ROOT / "build-cache" / "updater-pyinstaller-1.6.5"
-LAUNCHER_STAGE = ROOT / "build-cache" / "launcher-stage-1.6.5"
-LAUNCHER_WORK = ROOT / "build-cache" / "launcher-pyinstaller-1.6.5"
+STAGE = ROOT / "build-cache" / "stage-1.6.6"
+WORK = ROOT / "build-cache" / "pyinstaller-1.6.6"
+UPDATER_STAGE = ROOT / "build-cache" / "updater-stage-1.6.6"
+UPDATER_WORK = ROOT / "build-cache" / "updater-pyinstaller-1.6.6"
+LAUNCHER_STAGE = ROOT / "build-cache" / "launcher-stage-1.6.6"
+LAUNCHER_WORK = ROOT / "build-cache" / "launcher-pyinstaller-1.6.6"
 PYTHON = ROOT / ".venv" / "Scripts" / "python.exe"
 PYINSTALLER = ROOT / ".venv" / "Scripts" / "pyinstaller.exe"
-VERSION = "1.6.5"
+VERSION = "1.6.6"
 
-USAGE = """观海·听涛 1.6.5 · 完全离线语音转录
+USAGE = """观海·听涛 1.6.6 · 完全离线语音转录
 ====================================
 观海听涛，声落成章。
 
@@ -61,6 +61,7 @@ USAGE = """观海·听涛 1.6.5 · 完全离线语音转录
 
 内嵌使用教学
 - 左侧“使用教学”或 F1 打开“听涛学堂”，共 12 章详细图文与中文语音讲解。
+- 每章包含原创四步流程图和当前软件真实界面截图，共 24 张本地 PNG；先读图，再对照界面操作。
 - 支持全文搜索、上一章／下一章、播放／暂停／停止、进度拖动、音量及 0.75–1.5 倍速。
 - 所有 WAV 讲解均随程序本地提供，播放不联网、不调用在线语音服务；离开教学页或退出自动停止。
 
@@ -238,11 +239,11 @@ def write_build_info() -> None:
         "update_format": "tinglan-offline-update-v1",
         "application_and_model_updates_separated": False,
         "application_update_excludes": ["data", "models/faster-whisper-small", "models/faster-whisper-medium", "config.json"],
-        "model_update_policy": "1.6.5 updates application and local sound assets only; existing ASR, voiceprint models and user data are protected",
+        "model_update_policy": "1.6.6 updates application and local sound assets only; existing ASR, voiceprint models and user data are protected",
         "audio_presets": {"default": "original", "optional": ["light", "standard"], "modifies_source": False},
         "recording": {"history_waveform_seconds": 60, "peak_meter_db_ticks": [-12, -6, 0], "limiter_default": True, "automatic_gain_default": False, "denoise_levels": ["off", "low", "medium", "high"], "controls_live_during_recording": True, "window_and_taskbar_tally": True},
         "opening_scene": {"local_animation": True, "local_ocean_sound": True, "skippable": True},
-        "tutorial": {"chapters": 12, "detailed_html": True, "local_chinese_narration": True, "audio_files": 12, "audio_directory": "assets/tutorial", "search": True, "playback_rates": [0.75, 1.0, 1.25, 1.5], "keyboard_shortcut": "F1", "online_tts_required": False},
+        "tutorial": {"chapters": 12, "detailed_html": True, "local_chinese_narration": True, "audio_files": 12, "workflow_diagrams": 12, "real_interface_screenshots": 12, "visual_assets_offline": True, "audio_directory": "assets/tutorial", "search": True, "playback_rates": [0.75, 1.0, 1.25, 1.5], "keyboard_shortcut": "F1", "online_tts_required": False},
         "larger_model_estimates_not_benchmarked": {
             "large-v3": {"model_gb": 3.09, "peak_ram_gb": [6, 10], "relative_cpu_time": [4, 8]},
         },

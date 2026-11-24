@@ -35,7 +35,7 @@ def capture() -> None:
     assert panel.gain_check.isChecked()
     assert panel.denoise_combo.currentData() == "high"
     assert len(panel.waveform._values) > 0
-    window.grab().save(str(ROOT / "build-cache" / "gui-1.6.5" / "real-recording.png"))
+    window.grab().save(str(ROOT / "build-cache" / "gui-1.6.6" / "real-recording.png"))
     panel.recorder.stop()
 
 

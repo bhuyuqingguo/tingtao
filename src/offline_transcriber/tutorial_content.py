@@ -1,14 +1,34 @@
 from __future__ import annotations
 
 
+# Each chapter pairs an original four-step diagram with a real, matching application page.
+TUTORIAL_VISUALS = {
+    1: {"number": 1, "title": "第一次转录", "page": 0, "steps": ("添加音频或视频", "保持中文与轻量模型", "开始离线转录", "检查并导出文稿"), "note": "先用一至三分钟清晰音频，完成后再处理长会议。", "caption": "转录工作台：添加文件、选择模型并启动任务。"},
+    2: {"number": 2, "title": "添加文件与批量模式", "page": 0, "steps": ("一次添加多个文件", "调整列表顺序", "选择队列或合并", "分别或统一导出"), "note": "合并模式按列表顺序连接时间轴，原音频不会被改写。", "caption": "多文件工作台：文件顺序与批量模式都在这里设置。"},
+    3: {"number": 3, "title": "模型与识别参数", "page": 3, "steps": ("先选轻量或精准模型", "保持默认搜索宽度", "按需选择音频处理", "用同一音频比较"), "note": "更大模型不一定每句更准；以真实音频对比结果为准。", "caption": "模型与系统：模型、主题、声纹库及升级入口集中在此页。"},
+    4: {"number": 4, "title": "录音完整流程", "page": 1, "steps": ("选择正确输入音源", "观察电平与历史波形", "按需开启声音优化", "停止、命名并收存"), "note": "正式会议前先录二十秒，回听并试转录。", "caption": "录音页：音源、滚动波形、分色电平及录音灯效清晰可见。"},
+    5: {"number": 5, "title": "音频库与加密", "page": 1, "steps": ("导入或收存音频", "命名并添加关键词", "需要时启用加密", "播放、导出或转录"), "note": "密码无法找回；已导出的普通音频和文稿不会自动加密。", "caption": "录音与音频库：库内音频可管理、播放并加入离线转录。"},
+    6: {"number": 6, "title": "文稿检查与导出", "page": 0, "steps": ("通读开头和结尾", "复核人名数字术语", "选择合适导出格式", "打开文件再次检查"), "note": "重要内容必须人工复核，字幕还需检查时间轴。", "caption": "原文页签：先检查转录文稿，再使用下方导出功能。"},
+    7: {"number": 7, "title": "声纹与讲话人", "page": 0, "steps": ("开启讲话人识别", "完成转录并查标签", "命名保存本地声纹", "以后自动匹配姓名"), "note": "声纹仅辅助文稿整理，不用于身份认定或安全验证。", "caption": "工作台讲话人选项：启用后，转录片段会尝试匹配本地声纹库。"},
+    8: {"number": 8, "title": "一键形成纪要", "page": 0, "steps": ("先修正转录原文", "打开会议纪要页签", "一键形成并逐项核对", "导出后由本人审核"), "note": "本地规则不补充原文没有的责任人、日期和决定。", "caption": "会议纪要页签：重点、决定事项与待办集中呈现。"},
+    9: {"number": 9, "title": "转录记录与命名", "page": 2, "steps": ("进入转录记录", "选择历史任务", "手动或按内容命名", "重新打开并备份"), "note": "推荐“日期－项目－主题－场次”，备份时保留目录结构。", "caption": "转录记录：左侧选择历史任务，右侧查看文稿并管理名称。"},
+    10: {"number": 10, "title": "离线增量升级", "page": 3, "steps": ("核对当前版本基线", "直接选择增量 ZIP", "阅读发行说明", "一键升级并重启"), "note": "无需解压；版本或哈希不符会拒绝，失败自动回滚。", "caption": "模型与系统升级区：在当前软件内选择 ZIP 并完成一键升级。"},
+    11: {"number": 11, "title": "性能与资源规划", "page": 3, "steps": ("先用短音频测速", "资源有限选轻量模型", "关闭其他高负载程序", "长任务预留时间空间"), "note": "不要以开发电脑跑分推断受控环境实际完成时间。", "caption": "模型与系统：根据目标电脑资源选择模型并检查本地资源。"},
+    12: {"number": 12, "title": "故障排查清单", "page": 3, "steps": ("记录现象与完整错误", "回到原声默认参数", "检查权限空间和完整性", "核对版本与升级哈希"), "note": "保留版本、步骤和日志；分享前检查敏感文件名与路径。", "caption": "系统页可核对版本和本地资源；详细日志位于 data/logs。"},
+}
+
+
 def chapter(number: int, title: str, subtitle: str, body: str, narration: str) -> dict:
     return {
+        **TUTORIAL_VISUALS[number],
         "number": number,
         "title": title,
         "subtitle": subtitle,
         "body": body.strip(),
         "narration": narration.strip(),
         "audio": f"assets/tutorial/{number:02d}.wav",
+        "diagram": f"assets/tutorial/diagram-{number:02d}.png",
+        "screenshot": f"assets/tutorial/screen-{number:02d}.png",
     }
 
 

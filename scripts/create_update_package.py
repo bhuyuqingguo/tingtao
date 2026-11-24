@@ -43,10 +43,10 @@ def files_by_relative(root: Path) -> dict[str, Path]:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Create a two-item TingTao in-app incremental update package")
-    parser.add_argument("--old", type=Path, default=ROOT / "build-cache" / "self-update-acceptance-1.6.4" / "TingTao")
+    parser.add_argument("--old", type=Path, default=ROOT / "build-cache" / "self-update-acceptance-1.6.5" / "TingTao")
     parser.add_argument("--new", type=Path, default=ROOT / "dist" / "Windows-x64" / "TingTao")
     parser.add_argument("--platform", choices=("windows", "kylin"), default="windows")
-    parser.add_argument("--work", type=Path, default=ROOT / "build-cache" / "update-package-1.6.5")
+    parser.add_argument("--work", type=Path, default=ROOT / "build-cache" / "update-package-1.6.6")
     parser.add_argument("--archive", type=Path)
     return parser.parse_args()
 
@@ -89,7 +89,7 @@ def main() -> None:
         "created_at": datetime.now().astimezone().isoformat(), "files": changed, "deletes": deletes,
         "total_payload_bytes": sum(item["size"] for item in changed),
         "protected_paths": ["data", "models/faster-whisper-small", "models/faster-whisper-medium", "config.json"],
-        "release_notes": "一、新增听涛学堂：12 章详细图文教学，覆盖转录、录音、音频库、导出、声纹、纪要、升级与故障排查。\n二、本地中文语音：每章独立讲解，支持全文搜索、播放／暂停／停止、进度拖动、音量与 0.75–1.5 倍速。\n三、便捷入口：左侧导航新增使用教学，按 F1 随时打开；切换页面或退出自动停止讲解。\n四、完全离线与安全保留：语音资源随包提供，不调用在线服务；配置、音频库、记录和模型保持不变。",
+        "release_notes": "一、12 章新增步骤流程图：每章四个关键步骤与重要提醒一图读懂，采用统一古典配色。\n二、12 张真实界面截图：对应工作台、录音与音频库、转录记录、模型与系统等当前软件页面。\n三、图文声一体学习：先读流程图，再对照界面截图和详细正文，同时可播放本章中文语音。\n四、完全离线与安全保留：24 张 PNG 随程序本地提供，不访问网络；配置、音频库、记录和模型保持不变。",
     }
     args.work.mkdir(parents=True, exist_ok=True)
     update.unlink(missing_ok=True)
@@ -109,7 +109,7 @@ def main() -> None:
         "small_and_medium_models_modified": False, "user_data_modified": False,
         "top_level_items": [launcher_name, "TingTaoUpdate"],
     }
-    readme = f"""观海·听涛 {to_version} · 内嵌教学与本地语音离线增量包
+    readme = f"""观海·听涛 {to_version} · 教学流程图与真实截图离线增量包
 ================================================
 适用版本：{from_version} → {to_version}；平台：{platform_name}
 
@@ -120,10 +120,10 @@ def main() -> None:
 4. 不需要任何独立升级工具；失败自动回滚。
 
 新版内容
-- 新增“听涛学堂”：12 章详细图文，涵盖转录、批量队列、录音、音频库、导出、声纹、纪要、记录、升级、性能与排障。
-- 每章附独立本地中文语音，支持搜索、播放／暂停／停止、进度、音量、0.75–1.5 倍速及章节切换。
-- 左侧导航新增“使用教学”，F1 随时打开；离开教学页或退出自动停止播放。
-- 语音 WAV 随程序提供，播放全程离线，不调用在线语音服务。
+- 12 章各新增一张四步流程图，标明操作顺序与关键提醒，统一古典配色。
+- 12 张当前软件真实界面截图，覆盖工作台、录音、音频库、记录和系统设置。
+- 点击流程图或截图可在软件内查看原图；详细正文与本地中文语音继续保留。
+- 共新增 24 张本地 PNG，看图学习全程离线。
 
 安全与保留内容
 - 安装前校验源版本、旧文件哈希、载荷大小和 SHA-256，失败自动回滚。

@@ -5,7 +5,8 @@ import math
 import time
 from pathlib import Path
 
-from PySide6.QtGui import QColor
+from PySide6.QtCore import QTimer, QUrl
+from PySide6.QtGui import QColor, QTextDocument
 from PySide6.QtMultimedia import QMediaPlayer
 from PySide6.QtWidgets import QApplication, QInputDialog, QLabel, QMessageBox
 
@@ -15,7 +16,7 @@ from offline_transcriber.update_dialog import UpdateConfirmationDialog
 
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "build-cache" / "gui-1.6.5"
+OUT = ROOT / "build-cache" / "gui-1.6.6"
 OUT.mkdir(parents=True, exist_ok=True)
 app = QApplication([])
 window = MainWindow()
@@ -75,7 +76,23 @@ tutorial.next_button.click()
 assert tutorial.chapter_list.currentRow() == 1
 tutorial.chapter_list.setCurrentRow(0)
 app.processEvents()
+for key in ("diagram", "screenshot"):
+    url = QUrl.fromLocalFile(str(ROOT / tutorial.chapters[0][key]))
+    resource = tutorial.content.document().resource(QTextDocument.ResourceType.ImageResource, url)
+    assert not resource.isNull(), f"Tutorial image did not load: {url}"
 assert tutorial.grab().save(str(OUT / "tutorial.png"))
+tutorial.content.verticalScrollBar().setValue(390)
+app.processEvents()
+assert tutorial.grab().save(str(OUT / "tutorial-interface.png"))
+tutorial.content.verticalScrollBar().setValue(0)
+def capture_zoom():
+    zoom = app.activeModalWidget()
+    assert zoom is not None
+    assert zoom.grab().save(str(OUT / "tutorial-image-zoom.png"))
+    zoom.close()
+QTimer.singleShot(250, capture_zoom)
+tutorial._show_image(QUrl.fromLocalFile(str(ROOT / tutorial.chapters[0]["diagram"])))
+assert app.activeModalWidget() is None
 window._show_page(0)
 assert tutorial.player.playbackState() == QMediaPlayer.PlaybackState.StoppedState
 
@@ -104,8 +121,8 @@ assert message.grab().save(str(OUT / "message-dialog.png"))
 message.close()
 
 update_dialog = UpdateConfirmationDialog({
-    "from_version": "1.6.4", "to_version": "1.6.5", "package_kind": "application",
-    "distribution_path": str(ROOT / "dist" / "TingTao-1.6.4-to-1.6.5-Windows-x64-Incremental.zip"),
+    "from_version": "1.6.5", "to_version": "1.6.6", "package_kind": "application",
+    "distribution_path": str(ROOT / "dist" / "TingTao-1.6.5-to-1.6.6-Windows-x64-Incremental.zip"),
     "total_payload_bytes": 12 * 1024 * 1024, "files": [{}, {}, {}, {}],
     "release_notes": "直接选择增量 ZIP，无需解压或处理 manifest。\n发行说明清晰展示，确认后一键升级并自动重启。\n个人配置、音频库、转录记录和模型保持不变。",
 }, window)

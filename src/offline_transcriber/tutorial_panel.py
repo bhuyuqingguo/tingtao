@@ -3,10 +3,11 @@ from __future__ import annotations
 import re
 
 from PySide6.QtCore import QUrl, Qt
+from PySide6.QtGui import QPixmap
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PySide6.QtWidgets import (
-    QComboBox, QFrame, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem,
-    QPushButton, QSlider, QTextBrowser, QVBoxLayout, QWidget,
+    QComboBox, QDialog, QFrame, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem,
+    QPushButton, QScrollArea, QSlider, QTextBrowser, QVBoxLayout, QWidget,
 )
 
 from .paths import APP_ROOT
@@ -67,6 +68,8 @@ class TutorialPanel(QWidget):
         self.content = QTextBrowser()
         self.content.setObjectName("tutorialContent")
         self.content.setOpenExternalLinks(False)
+        self.content.setOpenLinks(False)
+        self.content.anchorClicked.connect(self._show_image)
         self.content.setReadOnly(True)
         content_column.addWidget(self.content, 1)
 
@@ -146,11 +149,37 @@ class TutorialPanel(QWidget):
 
     @staticmethod
     def _html(item: dict) -> str:
+        diagram = QUrl.fromLocalFile(str(APP_ROOT / item["diagram"])).toString()
+        screenshot = QUrl.fromLocalFile(str(APP_ROOT / item["screenshot"])).toString()
         return f"""<html><body style='font-family:Microsoft YaHei,sans-serif;color:#29474A;line-height:1.65'>
         <div style='color:#8B643E;font-size:13px'>第 {item['number']:02d} 章 · {item['title']} · {item['subtitle']}</div>
+        <h2 style='color:#29474A'>本章步骤图</h2>
+        <div align='center'><a href='{diagram}'><img src='{diagram}' width='640' height='235'></a></div>
+        <p style='color:#725536'>先看四个步骤，再对照下方真实界面操作。点击流程图或截图可在软件内放大查看。</p>
+        <h2 style='color:#29474A'>对应界面截图</h2>
+        <div align='center'><a href='{screenshot}'><img src='{screenshot}' width='640'></a></div>
+        <p style='color:#6F7D78;font-size:12px'>{item['caption']}</p>
+        <hr>
         {item['body']}
         <hr><p><b>本章讲解稿</b></p><p>{item['narration']}</p>
         </body></html>"""
+
+    def _show_image(self, url: QUrl) -> None:
+        path = url.toLocalFile()
+        pixmap = QPixmap(path)
+        if pixmap.isNull():
+            return
+        dialog = QDialog(self)
+        dialog.setWindowTitle("教学图片 · 原图查看")
+        layout = QVBoxLayout(dialog)
+        scroll = QScrollArea(dialog)
+        label = QLabel()
+        label.setPixmap(pixmap)
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        scroll.setWidget(label)
+        layout.addWidget(scroll)
+        dialog.resize(min(1100, pixmap.width() + 40), min(780, pixmap.height() + 40))
+        dialog.exec()
 
     def _filter(self) -> None:
         query = self.search.text().strip().casefold()
