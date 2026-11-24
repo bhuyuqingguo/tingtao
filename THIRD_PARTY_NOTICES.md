@@ -20,6 +20,7 @@
 | NumPy | BSD-3-Clause | https://github.com/numpy/numpy |
 | PyInstaller | GPL-2.0-or-later，含引导程序例外 | https://pyinstaller.org/en/stable/license.html |
 | Hugging Face Hub | Apache-2.0 | https://github.com/huggingface/huggingface_hub |
+| 观海·八分核心 v0.3.0 | 用户提供的本地二进制核心，主提交 `311c53eef183b3e4a21a8c4909a3a257e54f4eba`；交接资料未附核心许可证文本，再分发条款须由核心提供方确认 | 本地交接文档与构建产物；Windows 核心 SHA-256：`60859522ef1e17c858fab7f9747552232de92edd95ab4b23bddaf0ce5fa97854` |
 
 FFmpeg 在发布包中作为独立进程使用，不是本项目的 Python 库。若重新构建或更换 FFmpeg，请保留对应源码获取信息、构建说明和许可证。
 

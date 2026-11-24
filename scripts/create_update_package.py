@@ -43,10 +43,10 @@ def files_by_relative(root: Path) -> dict[str, Path]:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Create a two-item TingTao in-app incremental update package")
-    parser.add_argument("--old", type=Path, default=ROOT / "build-cache" / "self-update-acceptance-1.6.6" / "TingTao")
+    parser.add_argument("--old", type=Path, default=ROOT / "build-cache" / "self-update-acceptance-1.6.7" / "TingTao")
     parser.add_argument("--new", type=Path, default=ROOT / "dist" / "Windows-x64" / "TingTao")
     parser.add_argument("--platform", choices=("windows", "kylin"), default="windows")
-    parser.add_argument("--work", type=Path, default=ROOT / "build-cache" / "update-package-1.6.7")
+    parser.add_argument("--work", type=Path, default=ROOT / "build-cache" / "update-package-1.6.8")
     parser.add_argument("--archive", type=Path)
     return parser.parse_args()
 
@@ -89,7 +89,7 @@ def main() -> None:
         "created_at": datetime.now().astimezone().isoformat(), "files": changed, "deletes": deletes,
         "total_payload_bytes": sum(item["size"] for item in changed),
         "protected_paths": ["data", "models/faster-whisper-small", "models/faster-whisper-medium", "config.json"],
-        "release_notes": "一、会中速记：四类时间点打点、会议主题、Ctrl+M 快捷键与置顶小窗，关闭小窗不会停止录音。\n二、转录提效：专业词上下文提示、一键带入关键词库；保留原音频与完全离线推理。\n三、字音校订：逐句定位原音、播放跟随、讲话人筛选、全文检索、修改写回与保守语篇清理。\n四、会议闭环：打点与主题随音频加密，关联转录的纪要自动带入时间点；转录记录支持正文全文搜索。\n五、安全升级：不增加模型体积；配置、音频库、转录记录和已有模型保持不变。",
+        "release_notes": "一、统一加密核心：今后新增加密与解密统一使用观海·八分 v0.3.0，音频库采用 BFQ 封装。\n二、保护完整内容：音频、名称、关键词、会议主题与会中打点均加密，口令不写入配置或日志。\n三、兼容历史数据：旧 AES 音频库保留只读兼容，首次以正确密码解锁后自动迁移；错误密码不会迁移。\n四、独立安全交付：选择音频后可设置独立口令导出 .bfq 八分包，原始音频与库内状态不变。\n五、平稳增量升级：不增加或修改识别模型；配置、音频库、转录记录、声纹库和已有模型均受保护。",
     }
     args.work.mkdir(parents=True, exist_ok=True)
     update.unlink(missing_ok=True)
@@ -109,7 +109,7 @@ def main() -> None:
         "small_and_medium_models_modified": False, "user_data_modified": False,
         "top_level_items": [launcher_name, "TingTaoUpdate"],
     }
-    readme = f"""观海·听涛 {to_version} · 会议工作流与字音校订离线增量包
+    readme = f"""观海·听涛 {to_version} · 观海·八分音频库离线增量包
 ================================================
 适用版本：{from_version} → {to_version}；平台：{platform_name}
 
@@ -120,10 +120,10 @@ def main() -> None:
 4. 不需要任何独立升级工具；失败自动回滚。
 
 新版内容
-- 会中主题与四类打点、Ctrl+M 快捷键、置顶速记小窗；关闭小窗不会停止录音。
-- 专业词提示可带入关键词库；字音校订支持逐句回听、播放跟随、筛选与正文修改。
-- 转录记录支持正文全文检索；语篇清理先预览再另存，不覆盖原始转录。
-- 打点随音频库加密并进入关联纪要；详细图文与本地语音教学同步更新。
+- 新增加密、解密统一使用观海·八分 v0.3.0，音频、名称、关键词、主题和打点采用 BFQ 保护。
+- 旧 AES 库可用原密码解锁，验证成功后自动迁移；错误密码不会触发迁移。
+- 支持设置独立口令导出 .bfq 八分包，口令不会写入配置或日志。
+- 内置图文和中文语音教学已同步更新观海·八分操作及安全边界。
 
 安全与保留内容
 - 安装前校验源版本、旧文件哈希、载荷大小和 SHA-256，失败自动回滚。

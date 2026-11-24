@@ -41,7 +41,7 @@ class AudioLibraryTests(unittest.TestCase):
         self.assertFalse(self.library.index_path.exists())
         self.assertTrue(self.library.encrypted_index_path.exists())
         self.assertNotIn("保密会议".encode("utf-8"), self.library.encrypted_index_path.read_bytes())
-        encrypted_files = list(self.library.files_root.glob("*.ttenc"))
+        encrypted_files = list(self.library.files_root.glob("*.bfq"))
         self.assertEqual(len(encrypted_files), 1)
         self.assertNotEqual(encrypted_files[0].read_bytes(), self.source.read_bytes())
         self.assertFalse(list(self.library.files_root.glob("*.wav")))
@@ -64,7 +64,7 @@ class AudioLibraryTests(unittest.TestCase):
         self.assertFalse(reopened.vault_path.exists())
         self.assertTrue(reopened.index_path.exists())
         self.assertEqual(json.loads(reopened.index_path.read_text(encoding="utf-8"))["items"][0]["name"], "内部访谈")
-        self.assertFalse(list(reopened.files_root.glob("*.ttenc")))
+        self.assertFalse(list(reopened.files_root.glob("*.bfq")))
 
     def test_new_audio_is_encrypted_and_tampering_is_detected(self):
         self.library.enable_encryption("a secure password")
@@ -73,6 +73,70 @@ class AudioLibraryTests(unittest.TestCase):
         stored.write_bytes(b"damaged")
         with self.assertRaises(InvalidVaultPasswordError):
             self.library.materialize(item["id"])
+
+    def test_legacy_aes_vault_is_migrated_only_after_correct_unlock(self):
+        import os
+        from offline_transcriber.audio_library import _b64
+
+        password = "legacy secure password"
+        salt = os.urandom(16)
+        key = self.library._derive_legacy(password, salt)
+        item = {
+            "id": "legacy-item", "name": "旧版保密会议", "original_name": self.source.name,
+            "extension": ".wav", "created_at": "before-bafen", "bytes": self.source.stat().st_size,
+            "encrypted": True, "file": "legacy-item.ttenc", "keywords": ["历史关键词"],
+        }
+        (self.library.files_root / item["file"]).write_bytes(self.library._seal_legacy(key, self.source.read_bytes()))
+        data = {"version": 1, "keywords": ["历史关键词"], "items": [item]}
+        self.library.legacy_index_path.write_bytes(self.library._seal_legacy(key, json.dumps(data, ensure_ascii=False).encode("utf-8")))
+        self.library.vault_path.write_text(json.dumps({
+            "version": 1, "kdf": "scrypt", "salt": _b64(salt),
+            "check": _b64(self.library._seal_legacy(key, b"tingtao-vault-check")),
+        }), encoding="utf-8")
+        with self.assertRaises(InvalidVaultPasswordError):
+            self.library.unlock("wrong password")
+        self.assertTrue(self.library.legacy_index_path.exists())
+        self.library.unlock(password)
+        self.assertEqual(self.library.encryption_format, "guanhai-bafen-bfq")
+        self.assertEqual(self.library.items()[0]["name"], "旧版保密会议")
+        self.assertEqual(self.library.materialize(item["id"]).read_bytes(), self.source.read_bytes())
+        self.assertFalse(self.library.legacy_index_path.exists())
+        self.assertFalse(list(self.library.files_root.glob("*.ttenc")))
+        self.assertNotIn(password, self.library.vault_path.read_text(encoding="utf-8"))
+
+    def test_interrupted_legacy_migration_keeps_old_vault_retryable(self):
+        import os
+        from unittest.mock import patch
+        from offline_transcriber.audio_library import _b64
+        from offline_transcriber.bafen_core import BafenError
+
+        password = "legacy secure password"
+        salt = os.urandom(16)
+        key = self.library._derive_legacy(password, salt)
+        item = {"id": "legacy-item", "name": "旧版会议", "original_name": self.source.name,
+                "extension": ".wav", "created_at": "before-bafen", "bytes": self.source.stat().st_size,
+                "encrypted": True, "file": "legacy-item.ttenc", "keywords": []}
+        (self.library.files_root / item["file"]).write_bytes(self.library._seal_legacy(key, self.source.read_bytes()))
+        data = {"version": 1, "keywords": [], "items": [item]}
+        self.library.legacy_index_path.write_bytes(self.library._seal_legacy(key, json.dumps(data).encode()))
+        self.library.vault_path.write_text(json.dumps({"version": 1, "salt": _b64(salt),
+            "check": _b64(self.library._seal_legacy(key, b"tingtao-vault-check"))}), encoding="utf-8")
+        real_pack = self.library.bafen.pack
+
+        def fail_at_index(source, secret, output=None, **kwargs):
+            if Path(output).name == "payload.bfq":
+                raise BafenError("模拟迁移中断")
+            return real_pack(source, secret, output, **kwargs)
+
+        with patch.object(self.library.bafen, "pack", side_effect=fail_at_index):
+            with self.assertRaisesRegex(RuntimeError, "模拟迁移中断"):
+                self.library.unlock(password)
+        self.assertEqual(self.library.encryption_format, "legacy-aes")
+        self.assertTrue(self.library.legacy_index_path.is_file())
+        self.assertTrue((self.library.files_root / "legacy-item.ttenc").is_file())
+        self.assertFalse(list(self.library.files_root.glob("*.bfq")))
+        self.library.unlock(password)
+        self.assertEqual(self.library.materialize("legacy-item").read_bytes(), self.source.read_bytes())
 
     def test_password_length_is_enforced(self):
         with self.assertRaisesRegex(ValueError, "8"):

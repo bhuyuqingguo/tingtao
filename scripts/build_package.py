@@ -11,17 +11,17 @@ ROOT = Path(__file__).resolve().parents[1]
 DIST_ROOT = ROOT / "dist" / "Windows-x64"
 DIST = DIST_ROOT / "TingTao"
 LAUNCHER = DIST_ROOT / "TingTao.exe"
-STAGE = ROOT / "build-cache" / "stage-1.6.7"
-WORK = ROOT / "build-cache" / "pyinstaller-1.6.7"
-UPDATER_STAGE = ROOT / "build-cache" / "updater-stage-1.6.7"
-UPDATER_WORK = ROOT / "build-cache" / "updater-pyinstaller-1.6.7"
-LAUNCHER_STAGE = ROOT / "build-cache" / "launcher-stage-1.6.7"
-LAUNCHER_WORK = ROOT / "build-cache" / "launcher-pyinstaller-1.6.7"
+STAGE = ROOT / "build-cache" / "stage-1.6.8"
+WORK = ROOT / "build-cache" / "pyinstaller-1.6.8"
+UPDATER_STAGE = ROOT / "build-cache" / "updater-stage-1.6.8"
+UPDATER_WORK = ROOT / "build-cache" / "updater-pyinstaller-1.6.8"
+LAUNCHER_STAGE = ROOT / "build-cache" / "launcher-stage-1.6.8"
+LAUNCHER_WORK = ROOT / "build-cache" / "launcher-pyinstaller-1.6.8"
 PYTHON = ROOT / ".venv" / "Scripts" / "python.exe"
 PYINSTALLER = ROOT / ".venv" / "Scripts" / "pyinstaller.exe"
-VERSION = "1.6.7"
+VERSION = "1.6.8"
 
-USAGE = """观海·听涛 1.6.7 · 完全离线语音转录
+USAGE = """观海·听涛 1.6.8 · 完全离线语音转录
 ====================================
 观海听涛，声落成章。
 
@@ -49,9 +49,10 @@ USAGE = """观海·听涛 1.6.7 · 完全离线语音转录
 4. 防爆音不能修复麦克风或声卡输入端已经发生的削波；强降噪可能损失轻声和远场语音，重要录音建议先比较档位。
 5. 录音时标志太阳在赭金与朱红间呼吸，标志边框在原色与朱红间切换，窗口红框、标题和任务栏图标同步提示。
 6. 支持导入、重命名、关键词库、搜索、播放、导出、删除和批量加入转录。
-7. 可选 AES-256-GCM 加密，音频内容、名称和关键词均加密；密码至少 8 字符且不会保存，遗忘无法恢复。
-8. 播放或转录加密音频时生成会话临时副本，锁定或退出自动清除。导出的普通音频和文稿不自动加密。
-9. 录音页可填写会议主题，按 Ctrl+M 添加重点／决定／待办／疑问打点；双击已保存打点回到原音。
+7. 新加密统一使用观海·八分 v0.3.0 BFQ，音频内容、名称、关键词、会议主题和打点均受保护；口令至少 8 字符且不会保存，遗忘无法恢复。
+8. 旧 AES 音频库保留只读兼容，首次使用正确密码解锁后自动迁移为 BFQ；错误密码不会迁移。播放或转录时生成会话临时副本，锁定或退出自动清除。
+9. 选择音频后可用独立口令“导出八分包”（.bfq），便于受控传递；导出的普通音频和文稿不自动加密。
+10. 录音页可填写会议主题，按 Ctrl+M 添加重点／决定／待办／疑问打点；双击已保存打点回到原音。
 10. “悬浮小窗”置顶显示计时并提供打点和返回按钮，关闭小窗不会停止录音；它不是实时转写字幕。
 11. 打点、主题和备注进入音频库同一加密索引；库内音频转录后，打点自动进入会议纪要。
 
@@ -204,6 +205,9 @@ def copy_licenses() -> None:
         "faster-whisper-small model, MIT License; https://huggingface.co/Systran/faster-whisper-small",
         "faster-whisper-medium model, MIT License; https://huggingface.co/Systran/faster-whisper-medium",
         "WeSpeaker CNCeleb ResNet34-LM ONNX, Apache-2.0; https://huggingface.co/wespeaker/wespeaker-cnceleb-resnet34-LM",
+        "Guanhai Bafen core v0.3.0, commit 311c53eef183b3e4a21a8c4909a3a257e54f4eba",
+        "Windows core SHA-256: 60859522ef1e17c858fab7f9747552232de92edd95ab4b23bddaf0ce5fa97854",
+        "User-supplied local core. No core license text was included in the handover materials; redistribution terms must be confirmed with the core provider.",
         "Logo generated for Guanhai Tingtao; system fonts are referenced, not redistributed.",
     ]
     for name in package_names:
@@ -252,8 +256,9 @@ def write_build_info() -> None:
         "update_format": "tinglan-offline-update-v1",
         "application_and_model_updates_separated": False,
         "application_update_excludes": ["data", "models/faster-whisper-small", "models/faster-whisper-medium", "config.json"],
-        "model_update_policy": "1.6.7 updates application and local sound assets only; existing ASR, voiceprint models and user data are protected",
+        "model_update_policy": "1.6.8 updates application and local sound assets only; existing ASR, voiceprint models and user data are protected",
         "audio_presets": {"default": "original", "optional": ["light", "standard"], "modifies_source": False},
+        "audio_encryption": {"provider": "观海·八分", "core_version": "0.3.0", "format": "BFQ", "legacy_aes_read_only": True, "legacy_auto_migration_after_verified_unlock": True, "password_persisted": False, "standalone_bfq_export": True},
         "recording": {"history_waveform_seconds": 60, "peak_meter_db_ticks": [-12, -6, 0], "limiter_default": True, "automatic_gain_default": False, "denoise_levels": ["off", "low", "medium", "high"], "controls_live_during_recording": True, "window_and_taskbar_tally": True},
         "opening_scene": {"local_animation": True, "local_ocean_sound": True, "skippable": True},
         "tutorial": {"chapters": 12, "detailed_html": True, "local_chinese_narration": True, "audio_files": 12, "workflow_diagrams": 12, "real_interface_screenshots": 12, "visual_assets_offline": True, "audio_directory": "assets/tutorial", "search": True, "playback_rates": [0.75, 1.0, 1.25, 1.5], "keyboard_shortcut": "F1", "online_tts_required": False},

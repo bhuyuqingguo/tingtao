@@ -258,7 +258,7 @@ class AudioLibraryPanel(QWidget):
 
     def refresh(self) -> None:
         locked = not self.library.unlocked
-        self.vault_status.setText("🔒 音频、名称和关键词已加密 · 解锁后才能浏览和转录" if locked else ("🔓 音频库已解锁 · 离开前建议锁定" if self.library.encryption_enabled else "本地音频库 · 当前未加密"))
+        self.vault_status.setText("🔒 观海·八分保护中 · 解锁后才能浏览和转录" if locked else ("🔓 观海·八分 BFQ 已解锁 · 离开前建议锁定" if self.library.encryption_enabled else "本地音频库 · 当前未加密"))
         self.encrypt_button.setText("解锁音频库" if locked else ("锁定音频库" if self.library.encryption_enabled else "启用加密存储"))
         self.disable_encryption_button.setVisible(self.library.encryption_enabled and not locked)
         self.audio_list.clear()
@@ -472,8 +472,8 @@ class AudioLibraryPanel(QWidget):
                 try:
                     self.library.unlock(password)
                     self.refresh()
-                except InvalidVaultPasswordError as exc:
-                    QMessageBox.warning(self, "无法解锁", str(exc))
+                except (InvalidVaultPasswordError, OSError, RuntimeError, ValueError) as exc:
+                    QMessageBox.warning(self, "无法解锁或迁移", f"{exc}\n旧音频库仍保留，可检查核心程序和磁盘空间后重试。")
             return
         password, accepted = QInputDialog.getText(self, "启用音频库加密", "设置至少 8 个字符的密码：", QLineEdit.EchoMode.Password)
         if not accepted:
@@ -487,7 +487,7 @@ class AudioLibraryPanel(QWidget):
         try:
             self.library.enable_encryption(password)
             self.refresh()
-            QMessageBox.information(self, "加密已启用", "音频、名称和关键词均已加密。密码不会保存；遗忘密码将无法恢复内容。\n转录或播放时会生成会话临时副本，锁定或退出时自动清除。")
+            QMessageBox.information(self, "观海·八分已启用", "音频、名称、关键词、会议主题和打点均已由观海·八分 BFQ 保护。口令不会保存；遗忘口令将无法恢复内容。\n旧版 AES 库首次以正确密码解锁后会自动迁移。转录或播放时生成会话临时副本，锁定或退出时自动清除。")
         except (OSError, ValueError, RuntimeError) as exc:
             QMessageBox.warning(self, "未能启用加密", str(exc))
 

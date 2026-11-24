@@ -7,7 +7,18 @@
     "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip",
     "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip"
   ],
+  "guanhai_bafen": {
+    "version": "0.3.0",
+    "commit": "311c53eef183b3e4a21a8c4909a3a257e54f4eba",
+    "windows_core": "core/guanhai-core.exe",
+    "sha256": "60859522ef1e17c858fab7f9747552232de92edd95ab4b23bddaf0ce5fa97854",
+    "license_note": "用户提供的本地核心；交接资料未附核心许可证文本，再分发条款须由核心提供方确认"
+  },
   "files": [
+    {
+      "path": "core/guanhai-core.exe",
+      "sha256": "60859522ef1e17c858fab7f9747552232de92edd95ab4b23bddaf0ce5fa97854"
+    },
     {
       "path": "models/faster-whisper-small/model.bin",
       "sha256": "3e305921506d8872816023e4c273e75d2419fb89b24da97b4fe7bce14170d671",

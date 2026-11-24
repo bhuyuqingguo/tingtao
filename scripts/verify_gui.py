@@ -17,7 +17,7 @@ from offline_transcriber.update_dialog import UpdateConfirmationDialog
 
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "build-cache" / "gui-1.6.7"
+OUT = ROOT / "build-cache" / "gui-1.6.8"
 OUT.mkdir(parents=True, exist_ok=True)
 app = QApplication([])
 window = MainWindow()
@@ -32,6 +32,9 @@ assert window.audio_preset_combo.currentData() == "original"
 window.hotwords_edit.setText("观海听涛，麒麟，观海听涛")
 assert window._current_config().hotwords == "观海听涛，麒麟"
 assert window.library_hotwords_button.isEnabled()
+assert (ROOT / "core" / "guanhai-core.exe").is_file()
+assert window.audio_panel.bafen.executable.name == "guanhai-core.exe"
+assert any(button.text() == "导出八分包" for button in window.audio_panel.findChildren(type(window.audio_panel.encrypt_button)))
 
 # Meeting markers survive the same encrypted library index and enter local minutes.
 from offline_transcriber.audio_library import AudioLibrary
@@ -197,8 +200,8 @@ assert message.grab().save(str(OUT / "message-dialog.png"))
 message.close()
 
 update_dialog = UpdateConfirmationDialog({
-    "from_version": "1.6.6", "to_version": "1.6.7", "package_kind": "application",
-    "distribution_path": str(ROOT / "dist" / "TingTao-1.6.6-to-1.6.7-Windows-x64-Incremental.zip"),
+    "from_version": "1.6.7", "to_version": "1.6.8", "package_kind": "application",
+    "distribution_path": str(ROOT / "dist" / "TingTao-1.6.7-to-1.6.8-Windows-x64-Incremental.zip"),
     "total_payload_bytes": 12 * 1024 * 1024, "files": [{}, {}, {}, {}],
     "release_notes": "直接选择增量 ZIP，无需解压或处理 manifest。\n发行说明清晰展示，确认后一键升级并自动重启。\n个人配置、音频库、转录记录和模型保持不变。",
 }, window)
