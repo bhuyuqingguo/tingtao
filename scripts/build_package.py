@@ -161,6 +161,12 @@ def run_builds() -> None:
 
 
 def copy_assets() -> None:
+    core_source = ROOT / "core" / "guanhai-core.exe"
+    if not core_source.is_file():
+        raise RuntimeError("请将观海·八分 Windows 核心程序放到 core/guanhai-core.exe 后重新构建")
+    core_target = DIST / "core"
+    core_target.mkdir(parents=True)
+    shutil.copy2(core_source, core_target / core_source.name)
     shutil.copytree(ROOT / "models", DIST / "models")
     shutil.copytree(ROOT / "ffmpeg", DIST / "ffmpeg")
     assets = DIST / "assets"

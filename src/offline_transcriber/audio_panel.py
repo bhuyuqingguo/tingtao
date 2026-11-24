@@ -10,7 +10,10 @@ from PySide6.QtWidgets import (
     QListWidgetItem, QMessageBox, QPushButton, QVBoxLayout, QWidget,
 )
 
+import os
+
 from .audio_library import AudioLibrary, InvalidVaultPasswordError, VaultLockedError
+from .bafen_core import BafenCore, BafenError
 from .meeting_panel import MeetingNotesPanel
 from .paths import APP_ROOT, DATA_ROOT
 from .recorder import AudioRecorder
@@ -25,6 +28,8 @@ class AudioLibraryPanel(QWidget):
     def __init__(self, library: AudioLibrary | None = None, parent=None):
         super().__init__(parent)
         self.library = library or AudioLibrary()
+        core_name = "guanhai-core.exe" if os.name == "nt" else "guanhai-core"
+        self.bafen = BafenCore(APP_ROOT / "core" / core_name)
         self.recorder = AudioRecorder(self)
         self.recorder.elapsed_changed.connect(self._elapsed)
         self.recorder.state_changed.connect(self._recording_state)
@@ -142,6 +147,7 @@ class AudioLibraryPanel(QWidget):
             ("加入转录队列", self._transcribe, "primaryButton"),
             ("播放／停止", self._play, "secondaryButton"),
             ("导出音频", self._export, "secondaryButton"),
+            ("导出八分包", self._export_bafen, "secondaryButton"),
             ("删除", self._delete, "secondaryButton"),
         ):
             actions.addWidget(self._button(text, handler, style))
@@ -404,6 +410,45 @@ class AudioLibraryPanel(QWidget):
         if filename:
             self.library.export(item_id, filename)
             self.status_changed.emit(f"已导出普通音频副本：{filename}")
+
+    def _export_bafen(self) -> None:
+        if not self._guard():
+            return
+        item_id = self._selected_id()
+        if not item_id:
+            QMessageBox.information(self, "先选择音频", "请选择要封装导出的音频。")
+            return
+        entry = next(item for item in self.library.items() if item["id"] == item_id)
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            "导出八分加密包",
+            str(Path.home() / f"{entry['name']}.bfq"),
+            "八分加密包 (*.bfq)",
+        )
+        if not filename:
+            return
+        password, accepted = QInputDialog.getText(self, "设置八分包口令", "输入口令：", QLineEdit.EchoMode.Password)
+        if not accepted:
+            return
+        if not password:
+            QMessageBox.warning(self, "口令为空", "请输入口令后再封装。")
+            return
+        confirmation, accepted = QInputDialog.getText(self, "确认八分包口令", "再次输入口令：", QLineEdit.EchoMode.Password)
+        if not accepted:
+            return
+        if password != confirmation:
+            QMessageBox.warning(self, "口令不一致", "两次输入的口令不一致，请重试。")
+            return
+        self.set_busy(True)
+        try:
+            source = self.library.materialize(item_id)
+            result = self.bafen.pack(source, password, filename)
+            self.status_changed.emit(f"已导出八分加密包：{result.output}")
+            QMessageBox.information(self, "八分包已生成", f"音频已封装，原始音频保持不变。\n{result.output}")
+        except (OSError, ValueError, RuntimeError) as exc:
+            QMessageBox.warning(self, "未能导出八分包", str(exc))
+        finally:
+            self.set_busy(False)
 
     def _delete(self) -> None:
         item_id = self._selected_id()

@@ -9,6 +9,7 @@ __pycache__/
 # Large runtime assets; download or install separately
 models/
 ffmpeg/
+core/
 wheelhouse/
 
 # Personal data, transcripts, voiceprints, logs and configuration

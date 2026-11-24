@@ -118,6 +118,13 @@ def run_builds() -> None:
 
 
 def copy_assets() -> None:
+    core_source = ROOT / "core" / "guanhai-core"
+    if not core_source.is_file():
+        raise RuntimeError("请将观海·八分 Linux x86_64 核心程序放到 core/guanhai-core 后重新构建")
+    core_target = DIST / "core"
+    core_target.mkdir(parents=True)
+    shutil.copy2(core_source, core_target / core_source.name)
+    (core_target / core_source.name).chmod(0o755)
     shutil.copytree(ROOT / "models", DIST / "models")
     ffmpeg_source = ROOT / "ffmpeg" / "linux-amd64" / "ffmpeg"
     if not ffmpeg_source.is_file():
