@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 )
 
 from .audio_library import AudioLibrary, InvalidVaultPasswordError, VaultLockedError
+from .meeting_panel import MeetingNotesPanel
 from .paths import APP_ROOT, DATA_ROOT
 from .recorder import AudioRecorder
 from .recording_widgets import LevelMeter, WaveformWidget
@@ -55,6 +56,8 @@ class AudioLibraryPanel(QWidget):
         root.addWidget(subtitle)
 
         record_card = QFrame()
+        # Keep the 60-second waveform and its meter separate at the minimum window size.
+        record_card.setMinimumHeight(330)
         record_card.setObjectName("card")
         record_layout = QVBoxLayout(record_card)
         record_layout.setContentsMargins(16, 12, 16, 12)
@@ -105,6 +108,10 @@ class AudioLibraryPanel(QWidget):
         record_layout.addWidget(self.record_status)
         root.addWidget(record_card)
 
+        self.meeting_panel = MeetingNotesPanel(self.library, self.recorder, self.player)
+        self.meeting_panel.status_changed.connect(self.status_changed)
+        root.addWidget(self.meeting_panel)
+
         security_row = QHBoxLayout()
         self.vault_status = QLabel()
         self.vault_status.setObjectName("muted")
@@ -124,6 +131,7 @@ class AudioLibraryPanel(QWidget):
             search_row.addWidget(self._button(text, handler, "secondaryButton"))
         root.addLayout(search_row)
         self.audio_list = QListWidget()
+        self.audio_list.setMinimumHeight(108)
         self.audio_list.setObjectName("recordList")
         self.audio_list.itemSelectionChanged.connect(self._selection_changed)
         self.audio_list.itemDoubleClicked.connect(lambda _item: self._transcribe())
@@ -141,6 +149,7 @@ class AudioLibraryPanel(QWidget):
         root.addLayout(actions)
 
         keyword_card = QWidget()
+        keyword_card.setMinimumHeight(145)
         keyword_card.setObjectName("card")
         keyword_layout = QVBoxLayout(keyword_card)
         keyword_title = QLabel("常用关键词库")
@@ -209,6 +218,7 @@ class AudioLibraryPanel(QWidget):
             QMessageBox.warning(self, "无法开始录音", str(exc))
 
     def _recording_state(self, recording: bool) -> None:
+        self.meeting_panel.recording_state(recording)
         self.record_button.setText("■ 停止并保存" if recording else "● 开始录音")
         self.device_combo.setEnabled(not recording and not self._busy)
         self.refresh_devices_button.setEnabled(not recording and not self._busy)
@@ -221,14 +231,16 @@ class AudioLibraryPanel(QWidget):
             self._start_preview()
 
     def _elapsed(self, seconds: float) -> None:
+        self.meeting_panel.update_elapsed(seconds)
         minutes, seconds = divmod(int(seconds), 60)
         self.record_status.setText(f"正在录音 {minutes:02d}:{seconds:02d} · 点击“停止并保存”收存")
 
     def _recording_finished(self, filename: str) -> None:
-        default = f"会议录音 {datetime.now():%m月%d日 %H时%M分}"
+        default = self.meeting_panel.topic.text().strip() or f"会议录音 {datetime.now():%m月%d日 %H时%M分}"
         name, accepted = QInputDialog.getText(self, "命名本次录音", "音频名称：", text=default)
         try:
             item = self.library.add(filename, name.strip() if accepted else default)
+            self.meeting_panel.attach_recording(item["id"])
             Path(filename).unlink(missing_ok=True)
             self.record_status.setText(f"已收存：{item['name']}")
             self.refresh()
@@ -282,7 +294,9 @@ class AudioLibraryPanel(QWidget):
                 return
 
     def _selection_changed(self) -> None:
+        self.meeting_panel.save()
         self.player.stop()
+        self.meeting_panel.set_item(self._selected_id())
 
     def _guard(self) -> bool:
         if not self.library.unlocked:
@@ -449,6 +463,7 @@ class AudioLibraryPanel(QWidget):
         self.record_button.setEnabled(not busy)
 
     def shutdown(self) -> None:
+        self.meeting_panel.shutdown()
         self.player.stop()
         self.source_chime.stop()
         self.recorder.cancel()

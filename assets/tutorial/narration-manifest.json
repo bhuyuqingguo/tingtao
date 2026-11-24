@@ -33,8 +33,8 @@
       "chapter": 4,
       "title": "录音完整流程",
       "file": "assets/tutorial/04.wav",
-      "bytes": 1598540,
-      "duration_seconds": 36.25,
+      "bytes": 1572762,
+      "duration_seconds": 35.66,
       "voice": "Microsoft Huihui Desktop",
       "language": "zh-CN"
     },
@@ -51,8 +51,8 @@
       "chapter": 6,
       "title": "文稿检查与导出",
       "file": "assets/tutorial/06.wav",
-      "bytes": 1429724,
-      "duration_seconds": 32.42,
+      "bytes": 1560634,
+      "duration_seconds": 35.39,
       "voice": "Microsoft Huihui Desktop",
       "language": "zh-CN"
     },
@@ -78,8 +78,8 @@
       "chapter": 9,
       "title": "转录记录与命名",
       "file": "assets/tutorial/09.wav",
-      "bytes": 1240992,
-      "duration_seconds": 28.14,
+      "bytes": 1366640,
+      "duration_seconds": 30.99,
       "voice": "Microsoft Huihui Desktop",
       "language": "zh-CN"
     },

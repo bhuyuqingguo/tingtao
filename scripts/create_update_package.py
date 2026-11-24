@@ -43,10 +43,10 @@ def files_by_relative(root: Path) -> dict[str, Path]:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Create a two-item TingTao in-app incremental update package")
-    parser.add_argument("--old", type=Path, default=ROOT / "build-cache" / "self-update-acceptance-1.6.5" / "TingTao")
+    parser.add_argument("--old", type=Path, default=ROOT / "build-cache" / "self-update-acceptance-1.6.6" / "TingTao")
     parser.add_argument("--new", type=Path, default=ROOT / "dist" / "Windows-x64" / "TingTao")
     parser.add_argument("--platform", choices=("windows", "kylin"), default="windows")
-    parser.add_argument("--work", type=Path, default=ROOT / "build-cache" / "update-package-1.6.6")
+    parser.add_argument("--work", type=Path, default=ROOT / "build-cache" / "update-package-1.6.7")
     parser.add_argument("--archive", type=Path)
     return parser.parse_args()
 
@@ -89,7 +89,7 @@ def main() -> None:
         "created_at": datetime.now().astimezone().isoformat(), "files": changed, "deletes": deletes,
         "total_payload_bytes": sum(item["size"] for item in changed),
         "protected_paths": ["data", "models/faster-whisper-small", "models/faster-whisper-medium", "config.json"],
-        "release_notes": "一、12 章新增步骤流程图：每章四个关键步骤与重要提醒一图读懂，采用统一古典配色。\n二、12 张真实界面截图：对应工作台、录音与音频库、转录记录、模型与系统等当前软件页面。\n三、图文声一体学习：先读流程图，再对照界面截图和详细正文，同时可播放本章中文语音。\n四、完全离线与安全保留：24 张 PNG 随程序本地提供，不访问网络；配置、音频库、记录和模型保持不变。",
+        "release_notes": "一、会中速记：四类时间点打点、会议主题、Ctrl+M 快捷键与置顶小窗，关闭小窗不会停止录音。\n二、转录提效：专业词上下文提示、一键带入关键词库；保留原音频与完全离线推理。\n三、字音校订：逐句定位原音、播放跟随、讲话人筛选、全文检索、修改写回与保守语篇清理。\n四、会议闭环：打点与主题随音频加密，关联转录的纪要自动带入时间点；转录记录支持正文全文搜索。\n五、安全升级：不增加模型体积；配置、音频库、转录记录和已有模型保持不变。",
     }
     args.work.mkdir(parents=True, exist_ok=True)
     update.unlink(missing_ok=True)
@@ -109,7 +109,7 @@ def main() -> None:
         "small_and_medium_models_modified": False, "user_data_modified": False,
         "top_level_items": [launcher_name, "TingTaoUpdate"],
     }
-    readme = f"""观海·听涛 {to_version} · 教学流程图与真实截图离线增量包
+    readme = f"""观海·听涛 {to_version} · 会议工作流与字音校订离线增量包
 ================================================
 适用版本：{from_version} → {to_version}；平台：{platform_name}
 
@@ -120,10 +120,10 @@ def main() -> None:
 4. 不需要任何独立升级工具；失败自动回滚。
 
 新版内容
-- 12 章各新增一张四步流程图，标明操作顺序与关键提醒，统一古典配色。
-- 12 张当前软件真实界面截图，覆盖工作台、录音、音频库、记录和系统设置。
-- 点击流程图或截图可在软件内查看原图；详细正文与本地中文语音继续保留。
-- 共新增 24 张本地 PNG，看图学习全程离线。
+- 会中主题与四类打点、Ctrl+M 快捷键、置顶速记小窗；关闭小窗不会停止录音。
+- 专业词提示可带入关键词库；字音校订支持逐句回听、播放跟随、筛选与正文修改。
+- 转录记录支持正文全文检索；语篇清理先预览再另存，不覆盖原始转录。
+- 打点随音频库加密并进入关联纪要；详细图文与本地语音教学同步更新。
 
 安全与保留内容
 - 安装前校验源版本、旧文件哈希、载荷大小和 SHA-256，失败自动回滚。

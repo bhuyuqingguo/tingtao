@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import math
+import tempfile
 import time
 from pathlib import Path
 
@@ -16,7 +17,7 @@ from offline_transcriber.update_dialog import UpdateConfirmationDialog
 
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "build-cache" / "gui-1.6.6"
+OUT = ROOT / "build-cache" / "gui-1.6.7"
 OUT.mkdir(parents=True, exist_ok=True)
 app = QApplication([])
 window = MainWindow()
@@ -28,6 +29,76 @@ assert window.tabs.maximumWidth() == 760
 assert window.model_combo.count() == 2
 assert "轻量模型" in window.model_combo.itemText(0)
 assert window.audio_preset_combo.currentData() == "original"
+window.hotwords_edit.setText("观海听涛，麒麟，观海听涛")
+assert window._current_config().hotwords == "观海听涛，麒麟"
+assert window.library_hotwords_button.isEnabled()
+
+# Meeting markers survive the same encrypted library index and enter local minutes.
+from offline_transcriber.audio_library import AudioLibrary
+from offline_transcriber.minutes import generate_minutes
+from offline_transcriber.transcriber import SegmentData, TranscriptionResult
+with tempfile.TemporaryDirectory() as directory:
+    meeting_library = AudioLibrary(Path(directory) / "vault")
+    item = meeting_library.add(ROOT / "assets" / "test-zh.wav", "项目评审")
+    meeting = window.audio_panel.meeting_panel
+    original_library = meeting.library
+    meeting.library = meeting_library
+    meeting.topic.setText("季度项目评审")
+    meeting.set_item(item["id"])
+    meeting.note.setText("先验收短音频")
+    meeting.kind.setCurrentText("决定")
+    meeting.add_marker()
+    assert meeting.marker_list.count() == 1
+    assert "先验收短音频" in meeting_library.meeting_markdown(item["id"])
+    notes = meeting_library.meeting_for_source(meeting_library.materialize(item["id"]))
+    result = TranscriptionResult(
+        source=str(meeting_library.materialize(item["id"])), model="small", language="zh",
+        language_probability=1, duration=8, segments=(SegmentData(0, 4, "确定下周提交方案。"),), created_at="now",
+    )
+    assert notes and "先验收短音频" in generate_minutes(result, meeting_notes=[notes])
+    meeting.marker_list.setCurrentRow(0)
+    meeting.remove_marker()
+    assert not meeting_library.items()[0]["markers"]
+    meeting.library = original_library
+    meeting.item_id = None
+    meeting.topic.clear()
+    meeting._refresh_markers()
+
+# The compact always-on-top window is a meeting controller, not a recorder owner.
+meeting = window.audio_panel.meeting_panel
+meeting.recorder.poll.stop()  # Do not mix the preview timer with this UI-only fixture.
+meeting.recorder._active_recording = True  # Real microphone capture is tested separately.
+meeting.mini_button.setEnabled(True)
+meeting.topic.setText("季度项目评审")
+meeting.update_elapsed(65)
+meeting.show_mini()
+app.processEvents()
+assert meeting.mini.isVisible()
+assert "01:05" in meeting.mini.timer.text(), meeting.mini.timer.text()
+meeting.mini.close()
+app.processEvents()
+assert not meeting.mini.isVisible()
+assert meeting.recorder.recording
+meeting.recorder._active_recording = False
+
+# Review edits, full-text filters and speaker filters work on actual widgets.
+result = TranscriptionResult(
+    source="meeting.wav", model="small", language="zh", language_probability=1,
+    duration=65, created_at="now", sources=("meeting.wav",),
+    segments=(SegmentData(0, 4, "第一句", speaker="甲"), SegmentData(61, 65, "第二句", speaker="乙")),
+)
+window.review_panel.set_result(result)
+window.review_panel.search.setText("第二")
+assert window.review_panel.table.isRowHidden(0)
+assert not window.review_panel.table.isRowHidden(1)
+window.review_panel.search.clear()
+window.review_panel.table.item(1, 2).setText("第二句已校订")
+assert window.result.segments[1].text == "第二句已校订"
+window.review_panel.speaker_filter.setCurrentIndex(window.review_panel.speaker_filter.findData("甲"))
+assert not window.review_panel.table.isRowHidden(0)
+assert window.review_panel.table.isRowHidden(1)
+window.review_panel.clear()
+
 for index, name in ((0, "workspace.png"), (1, "recording.png"), (3, "system.png")):
     window._show_page(index)
     if index == 1:
@@ -43,6 +114,11 @@ for index, name in ((0, "workspace.png"), (1, "recording.png"), (3, "system.png"
         assert window.logo_tally._recording and window.logo_tally.timer.isActive()
         window.logo_tally._phase = math.pi / 2  # Capture the cinnabar-red phase.
     app.processEvents()
+    if index == 1:
+        waveform = window.audio_panel.waveform
+        level = window.audio_panel.level
+        assert waveform.geometry().bottom() < level.geometry().top(), (waveform.geometry(), level.geometry())
+        assert waveform.height() >= 118 and level.height() >= 66
     assert window.grab().save(str(OUT / name))
 window._set_recording_tally(False)
 
@@ -121,8 +197,8 @@ assert message.grab().save(str(OUT / "message-dialog.png"))
 message.close()
 
 update_dialog = UpdateConfirmationDialog({
-    "from_version": "1.6.5", "to_version": "1.6.6", "package_kind": "application",
-    "distribution_path": str(ROOT / "dist" / "TingTao-1.6.5-to-1.6.6-Windows-x64-Incremental.zip"),
+    "from_version": "1.6.6", "to_version": "1.6.7", "package_kind": "application",
+    "distribution_path": str(ROOT / "dist" / "TingTao-1.6.6-to-1.6.7-Windows-x64-Incremental.zip"),
     "total_payload_bytes": 12 * 1024 * 1024, "files": [{}, {}, {}, {}],
     "release_notes": "直接选择增量 ZIP，无需解压或处理 manifest。\n发行说明清晰展示，确认后一键升级并自动重启。\n个人配置、音频库、转录记录和模型保持不变。",
 }, window)

@@ -10,6 +10,7 @@ from PySide6.QtGui import QColor, QFont, QImage, QPainter, QPen
 from PySide6.QtWidgets import QApplication
 
 from offline_transcriber.main_window import MainWindow
+from offline_transcriber.transcriber import SegmentData, TranscriptionResult
 from offline_transcriber.tutorial_content import TUTORIAL_VISUALS
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -70,27 +71,43 @@ def save_screenshots(app: QApplication) -> None:
         window._set_recording_tally(False)
         if number == 1:
             window._set_source(str(sample))
+            window.hotwords_edit.setText("观海听涛，银河麒麟，量子通信")
         elif number == 2:
             window._add_sources([str(sample), str(second)])
         elif number == 4:
             history = [abs(math.sin(i / 29)) * (0.18 + 0.58 * abs(math.sin(i / 173))) for i in range(1200)]
             window.audio_panel.waveform.set_values(history)
             window.audio_panel.level.set_level(0.42)
+            window.audio_panel.meeting_panel.topic.setText("离线部署方案评审会")
+            window.audio_panel.meeting_panel.markers = [
+                {"seconds": 8.0, "type": "重点", "note": "先验证短音频"},
+                {"seconds": 26.0, "type": "待办", "note": "复核专业术语"},
+            ]
+            window.audio_panel.meeting_panel._refresh_markers()
             window._set_recording_tally(True)
             window.logo_tally._phase = math.pi / 2
         elif number == 6:
             window._set_source(str(sample))
-            window.text_edit.setPlainText("[00:00:00] 讲话人 01：今天讨论离线转录部署安排。\n[00:00:08] 讲话人 02：请核对决定事项、责任人和完成日期。\n[00:00:16] 讲话人 01：导出前复核姓名、数字与专业术语。")
-            window.tabs.setCurrentIndex(0)
+            sample_result = TranscriptionResult(
+                source=str(sample), model="轻量模型", language="zh", language_probability=1.0,
+                duration=24, created_at="教学示例", sources=(str(sample),),
+                segments=(
+                    SegmentData(0, 7, "今天讨论离线转录部署安排。", speaker="主持人"),
+                    SegmentData(8, 15, "请核对决定事项、责任人和完成日期。", speaker="记录人"),
+                    SegmentData(16, 23, "导出前复核姓名、数字与专业术语。", speaker="主持人"),
+                ),
+            )
+            window.review_panel.set_result(sample_result)
+            window.tabs.setCurrentIndex(1)
         elif number == 7:
             window.speaker_check.setChecked(True)
         elif number == 8:
             window.text_edit.setPlainText("今天讨论离线部署安排。决定先验证短音频，再处理长会议。")
             window.minutes_edit.setPlainText("会议重点\n• 先验证短音频，再处理长会议。\n\n决定事项\n• 使用本地离线流程，不上传原文。\n\n待办事项\n• 复核转录中的姓名、数字与专业术语。")
-            window.tabs.setCurrentIndex(1)
+            window.tabs.setCurrentIndex(2)
         if number != 7:
             window.speaker_check.setChecked(False)
-        if number != 8:
+        if number not in {6, 8}:
             window.tabs.setCurrentIndex(0)
         app.processEvents()
         # Chapter four includes the complete window to show the classical TALLY logo and red border.

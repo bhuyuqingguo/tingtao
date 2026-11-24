@@ -21,6 +21,7 @@ class AppConfig:
     speaker_enabled: bool = False
     speaker_threshold: float = 0.55
     audio_preset: str = "original"
+    hotwords: str = ""
 
 
 class ConfigStore:

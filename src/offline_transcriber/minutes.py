@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from .meeting import marker_text
 from .record_naming import suggest_name_from_text
 
 ACTION_WORDS = re.compile(r"待办|跟进|落实|负责|完成|提交|确认|对接|整理|准备|下发|反馈|下周|月底|之前|尽快|需要|应当|应该|将于|计划")
@@ -33,7 +34,7 @@ def _keywords(sentences: list[str]) -> Counter:
     return words
 
 
-def generate_minutes(result: Any, text: str | None = None) -> str:
+def generate_minutes(result: Any, text: str | None = None, meeting_notes: list[dict] | None = None) -> str:
     body = text if text is not None else result.text
     sentences = _sentences(body)
     title = suggest_name_from_text(body) or "会议"
@@ -73,7 +74,17 @@ def generate_minutes(result: Any, text: str | None = None) -> str:
     lines.extend(["", "## 三、待办与跟进", ""])
     lines.extend(f"- [ ] {sentence}" for sentence in actions) if actions else lines.append("- 未从文稿中检测到明确待办，请人工补充责任人与期限。")
     lines.extend([
-        "", "## 四、高频主题词", "",
+        "", "## 四、会中打点", "",
+    ])
+    marked = False
+    for note in meeting_notes or []:
+        for marker in note.get("markers", []):
+            lines.append(f"- {Path(note.get('source', '录音')).name} · {marker_text(marker)}")
+            marked = True
+    if not marked:
+        lines.append("- 本次没有关联的会中打点；可在录音页为主题、重点、决定、待办或疑问打点。")
+    lines.extend([
+        "", "## 五、高频主题词", "",
         "、".join(word for word, _count in keywords.most_common(12)) or "无",
         "", "---", "本纪要由本地规则从转录文稿自动整理，未使用在线服务或生成式大模型；请结合原文复核事实、责任人和期限。",
     ])

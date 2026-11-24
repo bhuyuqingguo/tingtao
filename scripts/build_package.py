@@ -11,17 +11,17 @@ ROOT = Path(__file__).resolve().parents[1]
 DIST_ROOT = ROOT / "dist" / "Windows-x64"
 DIST = DIST_ROOT / "TingTao"
 LAUNCHER = DIST_ROOT / "TingTao.exe"
-STAGE = ROOT / "build-cache" / "stage-1.6.6"
-WORK = ROOT / "build-cache" / "pyinstaller-1.6.6"
-UPDATER_STAGE = ROOT / "build-cache" / "updater-stage-1.6.6"
-UPDATER_WORK = ROOT / "build-cache" / "updater-pyinstaller-1.6.6"
-LAUNCHER_STAGE = ROOT / "build-cache" / "launcher-stage-1.6.6"
-LAUNCHER_WORK = ROOT / "build-cache" / "launcher-pyinstaller-1.6.6"
+STAGE = ROOT / "build-cache" / "stage-1.6.7"
+WORK = ROOT / "build-cache" / "pyinstaller-1.6.7"
+UPDATER_STAGE = ROOT / "build-cache" / "updater-stage-1.6.7"
+UPDATER_WORK = ROOT / "build-cache" / "updater-pyinstaller-1.6.7"
+LAUNCHER_STAGE = ROOT / "build-cache" / "launcher-stage-1.6.7"
+LAUNCHER_WORK = ROOT / "build-cache" / "launcher-pyinstaller-1.6.7"
 PYTHON = ROOT / ".venv" / "Scripts" / "python.exe"
 PYINSTALLER = ROOT / ".venv" / "Scripts" / "pyinstaller.exe"
-VERSION = "1.6.6"
+VERSION = "1.6.7"
 
-USAGE = """观海·听涛 1.6.6 · 完全离线语音转录
+USAGE = """观海·听涛 1.6.7 · 完全离线语音转录
 ====================================
 观海听涛，声落成章。
 
@@ -37,6 +37,10 @@ USAGE = """观海·听涛 1.6.6 · 完全离线语音转录
 3. 可导出 TXT、Markdown、DOCX（Word／WPS 兼容）、SRT、VTT、JSON；当前页签为纪要时导出纪要。
 4. “一键形成纪要”在本地整理重点、决定事项和待办，不调用在线大模型，须结合原文复核。
 5. 转录记录支持手动重命名和“根据内容命名”，不会自动批量改动旧记录。
+6. “专业词提示”用逗号分隔，作为本地识别上下文，可从音频关键词库一键带入；不会联网学习。
+7. “字音校订”支持逐句定位原音、播放跟随、讲话人筛选和正文修改；“保存校订”写回文稿与字幕。
+8. “语篇清理”仅清理明显填充词、重复标点和多余空格，预览后另存，不覆盖原始转录。
+9. 转录记录可搜索名称与正文全文；历史单文件／队列结果也可重新打开字音校订。
 
 录音、音频库与加密
 1. “录音与音频库”页可选择系统输入音源，录制 16 kHz 单声道 WAV，命名收存后立即加入离线转录。
@@ -47,6 +51,9 @@ USAGE = """观海·听涛 1.6.6 · 完全离线语音转录
 6. 支持导入、重命名、关键词库、搜索、播放、导出、删除和批量加入转录。
 7. 可选 AES-256-GCM 加密，音频内容、名称和关键词均加密；密码至少 8 字符且不会保存，遗忘无法恢复。
 8. 播放或转录加密音频时生成会话临时副本，锁定或退出自动清除。导出的普通音频和文稿不自动加密。
+9. 录音页可填写会议主题，按 Ctrl+M 添加重点／决定／待办／疑问打点；双击已保存打点回到原音。
+10. “悬浮小窗”置顶显示计时并提供打点和返回按钮，关闭小窗不会停止录音；它不是实时转写字幕。
+11. 打点、主题和备注进入音频库同一加密索引；库内音频转录后，打点自动进入会议纪要。
 
 开场与转录前处理
 - 潮生、远山、听涛、星夜四套开场每次随机出现，标题与标志采用独立固定区域；海浪音效为本地资源，可点击跳过。
@@ -66,7 +73,7 @@ USAGE = """观海·听涛 1.6.6 · 完全离线语音转录
 - 所有 WAV 讲解均随程序本地提供，播放不联网、不调用在线语音服务；离开教学页或退出自动停止。
 
 快捷键
-Ctrl+O 添加文件；Ctrl+Enter 开始；Ctrl+S 另存 TXT；F1 打开使用教学。
+Ctrl+O 添加文件；Ctrl+Enter 开始；Ctrl+S 另存 TXT；Ctrl+M 会议打点；Ctrl+F 当前页搜索；F1 打开使用教学。
 
 古典皮肤
 “模型与系统”页可切换“山海古典／素简现代”。古典标题使用系统楷体、宋体或 Noto 字体回退，
@@ -239,7 +246,7 @@ def write_build_info() -> None:
         "update_format": "tinglan-offline-update-v1",
         "application_and_model_updates_separated": False,
         "application_update_excludes": ["data", "models/faster-whisper-small", "models/faster-whisper-medium", "config.json"],
-        "model_update_policy": "1.6.6 updates application and local sound assets only; existing ASR, voiceprint models and user data are protected",
+        "model_update_policy": "1.6.7 updates application and local sound assets only; existing ASR, voiceprint models and user data are protected",
         "audio_presets": {"default": "original", "optional": ["light", "standard"], "modifies_source": False},
         "recording": {"history_waveform_seconds": 60, "peak_meter_db_ticks": [-12, -6, 0], "limiter_default": True, "automatic_gain_default": False, "denoise_levels": ["off", "low", "medium", "high"], "controls_live_during_recording": True, "window_and_taskbar_tally": True},
         "opening_scene": {"local_animation": True, "local_ocean_sound": True, "skippable": True},

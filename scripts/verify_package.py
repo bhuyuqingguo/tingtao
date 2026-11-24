@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DIST_ROOT = ROOT / "dist" / "Windows-x64"
 DIST = DIST_ROOT / "TingTao"
 LAUNCHER = DIST_ROOT / "TingTao.exe"
-ACCEPTANCE = ROOT / "build-cache" / "acceptance-1.6.6"
+ACCEPTANCE = ROOT / "build-cache" / "acceptance-1.6.7"
 AUDIO = ROOT / "assets" / "test-zh.wav"
 
 if os.name == "nt":
@@ -189,6 +189,18 @@ def assert_exports(directory: Path, stem: str) -> None:
         raise RuntimeError(f"Export verification failed in {directory}: {actual}")
 
 
+def remove_acceptance_tree() -> None:
+    """Wait briefly for Windows multimedia backends to release killed GUI files."""
+    for attempt in range(40):
+        try:
+            shutil.rmtree(ACCEPTANCE)
+            return
+        except PermissionError:
+            if attempt == 39:
+                raise
+            time.sleep(0.25)
+
+
 def main() -> None:
     if not LAUNCHER.is_file() or not (DIST / "TingTao.exe").is_file():
         raise RuntimeError("Build the two-item portable package first")
@@ -202,7 +214,7 @@ def main() -> None:
     if not AUDIO.is_file():
         raise RuntimeError("Chinese test audio is missing")
     if ACCEPTANCE.exists():
-        shutil.rmtree(ACCEPTANCE)
+        remove_acceptance_tree()
     ACCEPTANCE.mkdir(parents=True)
     portable = ACCEPTANCE / "portable"
     shutil.copytree(DIST_ROOT, portable)
@@ -319,7 +331,7 @@ def main() -> None:
     }
     (DIST / "VERIFICATION.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(report, ensure_ascii=False, indent=2))
-    shutil.rmtree(ACCEPTANCE)
+    remove_acceptance_tree()
 
 
 if __name__ == "__main__":

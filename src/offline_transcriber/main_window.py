@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QApplication, QButtonGroup, QCheckBox, QComboBox, QDialog, QFileDialog, QFrame,
     QGridLayout, QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget, QListWidgetItem,
     QMainWindow, QMessageBox, QPlainTextEdit, QProgressBar, QPushButton,
-    QSpinBox, QStackedWidget, QTabWidget, QVBoxLayout, QWidget,
+    QScrollArea, QSpinBox, QStackedWidget, QTabWidget, QVBoxLayout, QWidget,
 )
 
 from . import __version__
@@ -24,13 +24,15 @@ from .batch import MERGED_MODE, QUEUE_MODE, BatchSummary
 from .config import AppConfig, ConfigStore
 from .document_export import save_document
 from .formatters import export_all, to_json, to_srt, to_vtt
+from .meeting import normalize_hotwords, polish_transcript
 from .minutes import generate_minutes
 from .model_catalog import MODEL_SPECS, model_binary_size, model_is_complete
 from .paths import APP_ROOT, LOG_ROOT, OUTPUT_ROOT, ensure_data_directories
 from .record_naming import read_record_text, rename_record, suggest_name_from_text
 from .recording_widgets import LogoTally, RecordingBorder
+from .review_panel import TranscriptReviewPanel
 from .speaker import VoiceprintStore
-from .transcriber import TranscriptionResult
+from .transcriber import TranscriptionResult, result_from_dict
 from .tutorial_panel import TutorialPanel
 from .update_dialog import UpdateConfirmationDialog
 from .update_manager import inspect_update, launch_update
@@ -115,6 +117,8 @@ class MainWindow(QMainWindow):
         self.source_paths: list[str] = []
         self.file_statuses: dict[str, str] = {}
         self.queue_outputs: dict[str, str] = {}
+        self.record_text_cache: dict[str, str] = {}
+        self.meeting_notes_by_source: dict[str, dict] = {}
         self._update_launch_pending = False
         self.logger = self._create_logger()
         self.setWindowTitle(f"{PRODUCT_NAME} · 本地语音转录")
@@ -153,7 +157,12 @@ class MainWindow(QMainWindow):
         self.audio_panel.transcribe_requested.connect(self._add_library_sources)
         self.audio_panel.status_changed.connect(self.status_label.setText)
         self.audio_panel.recording_changed.connect(self._set_recording_tally)
-        self.stack.addWidget(self.audio_panel)
+        self.audio_panel.meeting_panel.restore_requested.connect(self._restore_recording_window)
+        self.audio_scroll = QScrollArea()
+        self.audio_scroll.setWidgetResizable(True)
+        self.audio_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.audio_scroll.setWidget(self.audio_panel)
+        self.stack.addWidget(self.audio_scroll)
         self.stack.addWidget(self._build_records())
         self.stack.addWidget(self._build_system())
         self.tutorial_panel = TutorialPanel()
@@ -183,6 +192,12 @@ class MainWindow(QMainWindow):
         self.logo_tally.set_recording(active)
         self.setWindowTitle(("● 录音中 · " if active else "") + f"{PRODUCT_NAME} · 本地语音转录")
         self.setWindowIcon(self._recording_icon if active else self._base_window_icon)
+
+    def _restore_recording_window(self) -> None:
+        self.showNormal()
+        self.raise_()
+        self.activateWindow()
+        self._show_page(1)
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
@@ -413,6 +428,15 @@ class MainWindow(QMainWindow):
         audio_hint = QLabel("不修改原音频 · 降噪可能损失轻声或远场语音")
         audio_hint.setObjectName("muted")
         settings_grid.addWidget(audio_hint, 3, 3, 1, 2)
+        settings_grid.addWidget(QLabel("专业词提示"), 4, 0)
+        self.hotwords_edit = QLineEdit()
+        self.hotwords_edit.setPlaceholderText("用逗号分隔，如：观海听涛，麒麟，量子通信")
+        self.hotwords_edit.setToolTip("作为本地模型的上下文提示，帮助识别专业名词；不保证必然改写，也不会联网学习")
+        settings_grid.addWidget(self.hotwords_edit, 4, 1, 1, 3)
+        self.library_hotwords_button = QPushButton("用关键词库")
+        self.library_hotwords_button.setObjectName("smallButton")
+        self.library_hotwords_button.clicked.connect(self._use_library_hotwords)
+        settings_grid.addWidget(self.library_hotwords_button, 4, 4)
         settings_grid.setColumnStretch(0, 2)
         settings_grid.setColumnStretch(1, 2)
         settings_grid.setColumnStretch(2, 1)
@@ -447,7 +471,10 @@ class MainWindow(QMainWindow):
         self.log_edit.setMaximumBlockCount(1500)
         self.minutes_edit = QPlainTextEdit()
         self.minutes_edit.setPlaceholderText("转录完成后点击“一键形成纪要”，本地自动整理重点、决定事项和待办。")
+        self.review_panel = TranscriptReviewPanel()
+        self.review_panel.result_edited.connect(self._review_edited)
         self.tabs.addTab(self.text_edit, "转录文稿")
+        self.tabs.addTab(self.review_panel, "字音校订")
         self.tabs.addTab(self.minutes_edit, "会议纪要")
         self.tabs.addTab(self.log_edit, "运行详情")
         self.tabs.setMaximumWidth(760)
@@ -455,6 +482,12 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.tabs, 1, Qt.AlignmentFlag.AlignHCenter)
 
         export_row = QHBoxLayout()
+        self.polish_button = QPushButton("语篇清理")
+        self.polish_button.setObjectName("secondaryButton")
+        self.polish_button.setEnabled(False)
+        self.polish_button.setToolTip("仅删除明显口头填充词、重复标点与多余空格；先预览再替换，不重写事实")
+        self.polish_button.clicked.connect(self._polish_transcript)
+        export_row.addWidget(self.polish_button)
         self.export_buttons = {}
         for kind, label in (("txt", "TXT"), ("md", "Markdown"), ("docx", "DOCX／WPS"), ("srt", "SRT"), ("vtt", "VTT"), ("json", "JSON")):
             button = QPushButton(label)
@@ -480,9 +513,65 @@ class MainWindow(QMainWindow):
         export_row.addStretch(1)
         layout.addLayout(export_row)
         self.status_label = QLabel("就绪 · 支持多文件队列与合并文稿")
+        self.review_panel.status_changed.connect(self.status_label.setText)
         self.status_label.setObjectName("muted")
         layout.addWidget(self.status_label)
         return page
+
+    def _review_edited(self, result: TranscriptionResult, text: str) -> None:
+        self.result = result
+        self.text_edit.setPlainText(text)
+
+    def _use_library_hotwords(self) -> None:
+        try:
+            if not self.audio_panel.library.unlocked:
+                QMessageBox.information(self, "音频库已锁定", "请先解锁音频库，再读取常用关键词。")
+                return
+            current = self.hotwords_edit.text()
+            values = current + ("，" if current.strip() else "") + "，".join(self.audio_panel.library.keywords())
+            self.hotwords_edit.setText(normalize_hotwords(values))
+            self.status_label.setText("已加入常用关键词 · 最多保留 30 个专业词作为本地识别提示")
+        except (OSError, RuntimeError, ValueError) as exc:
+            QMessageBox.warning(self, "关键词读取失败", str(exc))
+
+    def _polish_transcript(self) -> None:
+        if not self.result:
+            return
+        original = self.text_edit.toPlainText()
+        cleaned = polish_transcript(original)
+        if cleaned == original:
+            QMessageBox.information(self, "无需清理", "没有发现可安全删除的明显填充词、重复标点或多余空格。")
+            return
+        dialog = QDialog(self)
+        dialog.setWindowTitle("语篇清理预览 · 原结果不会被覆盖")
+        dialog.resize(660, 470)
+        layout = QVBoxLayout(dialog)
+        hint = QLabel("仅做保守清理，不自动改写事实或补写内容。确认后另存“语篇清理.txt”。")
+        hint.setObjectName("muted")
+        hint.setWordWrap(True)
+        layout.addWidget(hint)
+        preview = QPlainTextEdit()
+        preview.setPlainText(cleaned)
+        preview.setReadOnly(True)
+        layout.addWidget(preview, 1)
+        buttons = QHBoxLayout()
+        buttons.addStretch(1)
+        cancel = QPushButton("取消")
+        cancel.setObjectName("secondaryButton")
+        cancel.clicked.connect(dialog.reject)
+        buttons.addWidget(cancel)
+        apply = QPushButton("应用并另存")
+        apply.setObjectName("primaryButton")
+        apply.clicked.connect(dialog.accept)
+        buttons.addWidget(apply)
+        layout.addLayout(buttons)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        self.text_edit.setPlainText(cleaned)
+        if self.result_directory:
+            save_document(self.result_directory / "语篇清理.txt", cleaned, "观海听涛语篇清理")
+            self.status_label.setText("清理稿已另存为“语篇清理.txt” · 原始转录与时间轴保持不变")
+        self.tabs.setCurrentWidget(self.text_edit)
 
     def _build_records(self) -> QWidget:
         page = QWidget()
@@ -492,7 +581,7 @@ class MainWindow(QMainWindow):
         layout.addLayout(self._page_header("转录记录", "单文件、批量队列与合并结果都保存在本地，可在这里查找和打开。"))
         toolbar = QHBoxLayout()
         self.record_search = QLineEdit()
-        self.record_search.setPlaceholderText("搜索文件名、批次或日期……")
+        self.record_search.setPlaceholderText("搜索记录名称、日期或文稿全文……（Ctrl+F）")
         self.record_search.textChanged.connect(self._filter_records)
         refresh = QPushButton("刷新")
         refresh.setObjectName("secondaryButton")
@@ -511,8 +600,13 @@ class MainWindow(QMainWindow):
         self.record_detail = QPlainTextEdit()
         self.record_detail.setReadOnly(True)
         self.record_detail.setPlaceholderText("选择左侧记录，查看已保存的文稿。")
+        self.record_review = TranscriptReviewPanel()
+        self.record_review.status_changed.connect(self.status_label.setText)
+        record_tabs = QTabWidget()
+        record_tabs.addTab(self.record_detail, "保存文稿")
+        record_tabs.addTab(self.record_review, "字音校订")
         content.addWidget(self.record_list, 2)
-        content.addWidget(self.record_detail, 3)
+        content.addWidget(record_tabs, 3)
         layout.addLayout(content, 1)
         self.open_record_button = QPushButton("打开所选结果目录")
         self.open_record_button.setObjectName("secondaryButton")
@@ -692,9 +786,27 @@ class MainWindow(QMainWindow):
         """
 
     def _install_shortcuts(self) -> None:
-        for sequence, handler in (("Ctrl+O", self._browse_source), ("Ctrl+Return", self._start), ("Ctrl+S", lambda: self._export_as("txt")), ("F1", lambda: self._show_page(4))):
+        for sequence, handler in (("Ctrl+O", self._browse_source), ("Ctrl+Return", self._start), ("Ctrl+S", lambda: self._export_as("txt")), ("F1", lambda: self._show_page(4)), ("Ctrl+M", self._add_meeting_marker), ("Ctrl+F", self._focus_search)):
             shortcut = QShortcut(QKeySequence(sequence), self)
             shortcut.activated.connect(handler)
+
+    def _add_meeting_marker(self) -> None:
+        self.audio_panel.meeting_panel.add_marker()
+
+    def _focus_search(self) -> None:
+        if self.stack.currentIndex() == 1:
+            self.audio_panel.search.setFocus()
+            self.audio_panel.search.selectAll()
+        elif self.stack.currentIndex() == 2:
+            self.record_search.setFocus()
+            self.record_search.selectAll()
+        elif self.stack.currentIndex() == 4:
+            self.tutorial_panel.search.setFocus()
+            self.tutorial_panel.search.selectAll()
+        elif self.stack.currentIndex() == 0:
+            self.tabs.setCurrentWidget(self.review_panel)
+            self.review_panel.search.setFocus()
+            self.review_panel.search.selectAll()
 
     def _load_settings(self) -> None:
         index = self.language_combo.findData(self.config.language)
@@ -712,6 +824,7 @@ class MainWindow(QMainWindow):
         self.model_combo.setCurrentIndex(max(0, model_index))
         preset_index = self.audio_preset_combo.findData(getattr(self.config, "audio_preset", "original"))
         self.audio_preset_combo.setCurrentIndex(max(0, preset_index))
+        self.hotwords_edit.setText(getattr(self.config, "hotwords", ""))
 
     def _current_config(self) -> AppConfig:
         return AppConfig(
@@ -725,6 +838,7 @@ class MainWindow(QMainWindow):
             speaker_enabled=self.speaker_check.isChecked(),
             speaker_threshold=self.speaker_threshold.value() / 100,
             audio_preset=str(self.audio_preset_combo.currentData()),
+            hotwords=normalize_hotwords(self.hotwords_edit.text()),
         )
 
     def _change_theme(self) -> None:
@@ -751,6 +865,10 @@ class MainWindow(QMainWindow):
             self._append_log(f"已添加 {added} 个文件，当前共 {len(self.source_paths)} 个")
 
     def _add_library_sources(self, paths: list[str]) -> None:
+        for path in paths:
+            note = self.audio_panel.library.meeting_for_source(path)
+            if note:
+                self.meeting_notes_by_source[str(Path(path).resolve())] = note
         self._add_sources(paths)
         self._show_page(0)
         self.status_label.setText(f"已从音频库加入 {len(paths)} 个音频 · 点击开始转录即可离线识别")
@@ -818,8 +936,8 @@ class MainWindow(QMainWindow):
         self.drop_zone.setEnabled(not running)
         for widget in (
             self.model_combo, self.language_combo, self.beam_spin, self.vad_check, self.mode_combo,
-            self.speaker_check, self.speaker_threshold, self.audio_preset_combo,
-            self.output_edit, self.update_button, self.file_list, self.add_file_button,
+            self.speaker_check, self.speaker_threshold, self.audio_preset_combo, self.hotwords_edit,
+            self.library_hotwords_button, self.output_edit, self.update_button, self.file_list, self.add_file_button,
             self.remove_file_button, self.clear_files_button, self.move_up_button, self.move_down_button,
         ):
             widget.setEnabled(not running)
@@ -853,9 +971,11 @@ class MainWindow(QMainWindow):
         self.queue_outputs.clear()
         self.text_edit.clear()
         self.minutes_edit.clear()
+        self.review_panel.clear()
         self.log_edit.clear()
         self.name_speaker_button.setEnabled(False)
         self.minutes_button.setEnabled(False)
+        self.polish_button.setEnabled(False)
         self.progress.setValue(0)
         self.progress.setFormat("正在准备本地模型……")
         self.status_label.setText("任务运行中 · 模型只加载一次，文件按队列顺序处理")
@@ -878,7 +998,7 @@ class MainWindow(QMainWindow):
             self.config.batch_mode, self.config.model_name,
             speaker_enabled=self.config.speaker_enabled,
             speaker_threshold=self.config.speaker_threshold,
-            audio_preset=self.config.audio_preset, parent=self,
+            audio_preset=self.config.audio_preset, hotwords=self.config.hotwords, parent=self,
         )
         self.worker.progress_changed.connect(self._on_progress)
         self.worker.segment_ready.connect(self._on_segment)
@@ -950,8 +1070,10 @@ class MainWindow(QMainWindow):
         for button in self.export_buttons.values():
             button.setEnabled(True)
         self.text_edit.setPlainText(self.result.text)
+        self.review_panel.set_result(self.result, self.result_directory)
         self.name_speaker_button.setEnabled(bool(self.result.speaker_embeddings))
         self.minutes_button.setEnabled(True)
+        self.polish_button.setEnabled(True)
         self._set_running(False)
         self._refresh_records()
         if summary.failed_count:
@@ -1020,18 +1142,31 @@ class MainWindow(QMainWindow):
                     records.append(folder)
         records.sort(key=lambda path: path.stat().st_mtime, reverse=True)
         self.record_list.clear()
+        self.record_text_cache.clear()
         for folder in records:
             modified = datetime.fromtimestamp(folder.stat().st_mtime)
+            try:
+                self.record_text_cache[str(folder)] = read_record_text(folder)
+            except OSError:
+                self.record_text_cache[str(folder)] = ""
             item = QListWidgetItem(f"{folder.name}\n{modified:%Y-%m-%d %H:%M}")
             item.setData(Qt.ItemDataRole.UserRole, str(folder))
             self.record_list.addItem(item)
         self._filter_records()
 
     def _filter_records(self) -> None:
-        query = self.record_search.text().strip().lower()
+        query = self.record_search.text().strip().casefold()
         for index in range(self.record_list.count()):
             item = self.record_list.item(index)
-            item.setHidden(query not in item.text().lower())
+            folder = str(item.data(Qt.ItemDataRole.UserRole))
+            content = self.record_text_cache.get(folder, "").casefold()
+            matched = not query or query in (item.text() + "\n" + content).casefold()
+            item.setHidden(not matched)
+            if query and query in content:
+                position = content.find(query)
+                item.setToolTip("正文匹配：…" + self.record_text_cache[folder][max(0, position - 45):position + 100].replace("\n", " ") + "…")
+            else:
+                item.setToolTip(folder)
 
     def _selected_record_folder(self) -> Path | None:
         items = self.record_list.selectedItems()
@@ -1042,16 +1177,24 @@ class MainWindow(QMainWindow):
         self.open_record_button.setEnabled(folder is not None)
         self.rename_record_button.setEnabled(folder is not None)
         self.auto_name_button.setEnabled(folder is not None)
+        self.record_review.clear()
         if not folder:
             return
         preferred = list(folder.glob("合并文稿.txt")) + list(folder.glob("批次汇总.txt")) + list(folder.glob("*.txt"))
         if preferred:
             self.record_detail.setPlainText(preferred[0].read_text(encoding="utf-8-sig"))
-            return
-        json_files = [path for path in folder.glob("*.json") if path.name != "batch-report.json"]
+        json_files = list(folder.glob("合并文稿.json")) + list(folder.glob("批次汇总.json")) + [
+            path for path in folder.glob("*.json") if path.name != "batch-report.json"
+        ]
         if json_files:
-            payload = json.loads(json_files[0].read_text(encoding="utf-8"))
-            self.record_detail.setPlainText(payload.get("text", ""))
+            try:
+                payload = json.loads(json_files[0].read_text(encoding="utf-8-sig"))
+                result = result_from_dict(payload)
+                if not preferred:
+                    self.record_detail.setPlainText(payload.get("text", ""))
+                self.record_review.set_result(result, folder)
+            except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:
+                self.status_label.setText(f"该记录可阅读，但字音校订数据不完整：{exc}")
 
     def _open_selected_record(self) -> None:
         folder = self._selected_record_folder()
@@ -1110,6 +1253,7 @@ class MainWindow(QMainWindow):
                 stem = "合并文稿" if self.result.batch_mode == MERGED_MODE else "批次汇总"
                 export_all(self.result, self.result_directory, stem)
             self.text_edit.setPlainText(self.result.text)
+            self.review_panel.set_result(self.result, self.result_directory)
             self._append_log(f"已将 {original_speaker} 保存为持久声纹：{name.strip()}")
             QMessageBox.information(self, "声纹已保存", "以后开启讲话人识别时，将自动匹配该姓名。\n短片段和重叠语音仍可能无法可靠匹配。")
         except (OSError, ValueError) as exc:
@@ -1166,7 +1310,8 @@ class MainWindow(QMainWindow):
     def _generate_minutes(self) -> None:
         if not self.result:
             return
-        content = generate_minutes(self.result, self.text_edit.toPlainText())
+        meeting_notes = [self.meeting_notes_by_source[source] for source in self.source_paths if source in self.meeting_notes_by_source]
+        content = generate_minutes(self.result, self.text_edit.toPlainText(), meeting_notes)
         self.minutes_edit.setPlainText(content)
         self.tabs.setCurrentWidget(self.minutes_edit)
         if self.result_directory:
@@ -1239,6 +1384,8 @@ class MainWindow(QMainWindow):
                 event.ignore()
                 return
         self.audio_panel.shutdown()
+        self.review_panel.shutdown()
+        self.record_review.shutdown()
         self.tutorial_panel.shutdown()
         try:
             self.config_store.save(self._current_config())

@@ -54,6 +54,7 @@ def merge_results(results: Iterable[TranscriptionResult], mode: str = MERGED_MOD
                 source_index=source_index,
                 speaker=segment.speaker,
                 speaker_similarity=segment.speaker_similarity,
+                source_start=segment.start,
             ))
         for label, vector in (result.speaker_embeddings or {}).items():
             speaker_embeddings[f"{source_index}:{label}"] = vector
@@ -82,6 +83,7 @@ def transcribe_batch(
     beam_size: int = 5,
     vad_filter: bool = True,
     audio_preset: str = "original",
+    hotwords: str = "",
     progress: Callable[[int, str], None] | None = None,
     on_segment: Callable[[SegmentData], None] | None = None,
     log: Callable[[str], None] | None = None,
@@ -133,6 +135,7 @@ def transcribe_batch(
                 beam_size=beam_size,
                 vad_filter=vad_filter,
                 audio_preset=audio_preset,
+                hotwords=hotwords,
                 progress=file_progress,
                 on_segment=file_segment,
                 log=log,

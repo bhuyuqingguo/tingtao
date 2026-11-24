@@ -43,9 +43,12 @@ class SegmentData:
     source_index: int | None = None
     speaker: str | None = None
     speaker_similarity: float | None = None
+    source_start: float | None = None
 
     def to_dict(self) -> dict:
         payload = {"start": self.start, "end": self.end, "text": self.text}
+        if self.source_start is not None:
+            payload["source_start"] = self.source_start
         if self.source is not None:
             payload["source"] = self.source
             payload["source_index"] = self.source_index
@@ -85,6 +88,23 @@ class TranscriptionResult:
             "segments": [segment.to_dict() for segment in self.segments],
             "text": self.text,
         }
+
+
+def result_from_dict(payload: dict) -> TranscriptionResult:
+    """Restore saved local results for timestamp-aware review."""
+    segments = tuple(SegmentData(
+        start=float(item["start"]), end=float(item["end"]), text=str(item["text"]),
+        source=item.get("source"), source_index=item.get("source_index"),
+        speaker=item.get("speaker"), speaker_similarity=item.get("speaker_similarity"),
+        source_start=item.get("source_start"),
+    ) for item in payload.get("segments", []))
+    return TranscriptionResult(
+        source=str(payload.get("source", "")), model=str(payload.get("model", "")),
+        language=str(payload.get("language", "zh")), language_probability=payload.get("language_probability"),
+        duration=float(payload.get("duration", 0)), segments=segments,
+        created_at=str(payload.get("created_at", "")),
+        sources=tuple(payload.get("sources", [])), batch_mode=str(payload.get("batch_mode", "single")),
+    )
 
 
 ProgressCallback = Callable[[int, str], None]
@@ -197,6 +217,7 @@ class OfflineTranscriber:
         beam_size: int = 5,
         vad_filter: bool = True,
         audio_preset: str = "original",
+        hotwords: str = "",
         progress: ProgressCallback | None = None,
         on_segment: SegmentCallback | None = None,
         log: LogCallback | None = None,
@@ -227,6 +248,7 @@ class OfflineTranscriber:
             vad_filter=vad_filter,
             vad_parameters={"min_silence_duration_ms": 500} if vad_filter else None,
             condition_on_previous_text=True,
+            initial_prompt=(f"以下是本专业领域的词汇：{hotwords.strip()}" if hotwords.strip() else None),
             word_timestamps=False,
         )
         collected: list[SegmentData] = []

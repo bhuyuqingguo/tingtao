@@ -11,6 +11,7 @@ from pathlib import Path
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
 
+from .meeting import clean_markers
 from .paths import DATA_ROOT
 from .record_naming import sanitize_record_name
 
@@ -214,6 +215,29 @@ class AudioLibrary:
         item, data = self._get(item_id)
         item["keywords"] = cleaned
         self._save(data)
+
+    def set_meeting(self, item_id: str, topic: str, markers: list[dict]) -> None:
+        item, data = self._get(item_id)
+        item["meeting_topic"] = " ".join(topic.split())[:120]
+        item["markers"] = clean_markers(markers)
+        self._save(data)
+
+    def meeting_markdown(self, item_id: str) -> str:
+        item, _data = self._get(item_id)
+        from .meeting import marker_text
+        lines = [f"# {item.get('meeting_topic') or item['name']} · 会中打点", ""]
+        lines.extend(f"- {marker_text(marker)}" for marker in item.get("markers", []))
+        if len(lines) == 2:
+            lines.append("- 本次录音未设置打点。")
+        lines.extend(["", "时间点可用于回到原音复核；内容由记录者填写，不是自动生成的事实结论。"])
+        return "\n".join(lines) + "\n"
+
+    def meeting_for_source(self, source: str | Path) -> dict | None:
+        source = Path(source)
+        for item in self._load()["items"]:
+            if item.get("file") == source.name or item.get("id") == source.stem:
+                return {"source": item["name"], "topic": item.get("meeting_topic", ""), "markers": item.get("markers", [])}
+        return None
 
     def delete(self, item_id: str) -> None:
         item, data = self._get(item_id)
